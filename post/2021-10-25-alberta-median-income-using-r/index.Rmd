@@ -1,0 +1,131 @@
+---
+title: Alberta Median Income Using R
+author: Mark Morin
+date: '2021-10-25'
+slug: []
+categories: []
+tags: []
+---
+
+I ran across this article on the CBC website "[Albertans still make the most money, but other provinces are catching up](https://www.cbc.ca/news/canada/calgary/alberta-2018-median-average-income-canada-provinces-1.5473881)" and it has the following chart:
+
+![](https://i.cbc.ca/1.5473965.1582569001!/fileImage/httpImage/image.jpg_gen/derivatives/original_1180/median-income-2015-and-2018.jpg)
+
+The size of the difference between Alberta and the other Canadian provinces surprises me, but it cites the relevant StatsCan Table so I should be able to reproduce this. Sounds like a nice challenge for my nascent R skills.
+
+I'm a complete beginner with R, so none of the following should be interpreted as best practice. In fact, in my first attempt at this, I'll try to avoid using much beyond base R so that I have some idea of the value that the various libraries provide, and can decide whether or not I want to take them on as dependencies.
+
+Statistics Canada's [Web Data Service (WDS) User Guide](https://www.statcan.gc.ca/eng/developers/wds/user-guide) looks like the place to start. Right away I ran into trouble with the definitions for cubes, tables, and products - none of which match the table number referred to in CBC graphic "Table 11-10-0190-01". I was able to use the https://www150.statcan.gc.ca/t1/wds/rest/getAllCubesListLite method to find the following:
+
+```json
+{
+  "productId": 11100190,
+  "cansimId": "206-0011",
+  "cubeTitleEn": "Market income, government transfers, total income, income tax and after-tax income by economic family type",
+  "cubeTitleFr": "Revenu du marché, transferts gouvernementaux, revenu total, impôt sur le revenu et revenu après impôt selon le type de famille économique",
+  "cubeStartDate": "1976-01-01",
+  "cubeEndDate": "2019-01-01",
+  "releaseTime": "2021-03-23T12:30",
+  "archived": "2",
+  "subjectCode": [
+    "11"
+  ],
+  "surveyCode": [
+    "5200"
+  ],
+  "frequencyCode": 12,
+  "corrections": []
+}
+```
+So the productId is the first 8 numbers from the table number the article cites. The documentation says "Product Identification number (PID) is a unique product identifier for all Statistics Canada products, including large multidimensional tables. The first two digits refer to a subject, the next two digits refer to product type, the last four digits refer to the product itself." but I couldn't find a list of the subjects, or product types anywhere. I was able to find https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1110019001. Perhaps the 1110019001 productId refers to the webpage derived from the 11100190 table? There's a lot I don't understand here (vectors, coordinates), but let's see if we can move forward anyways.
+
+The Web Data Services use guide has a number of suggested usage scenarios, almost all of which involve finding out what changed on a particular date, then retrieving a subset of each dataset based on that information. I suspect the target for this would be institutional users that use this to create an onsite copy of StatCan data they're interested in. I think the methods that target entire tables, getfullTableDownloadCSV and getfullTableDownloadSDMX are the methods I'm interested in. [SDMX - Statistical Data and Metadata eXchange](https://sdmx.org/) is a data format designed for the efficient exchange of statistical data and I imagine that this is will be the right way to go, but it also looks fairly complicated so I'll still with csv for my first attempt.
+
+The url for table 11100190 is https://www150.statcan.gc.ca/t1/wds/rest/getFullTableDownloadCSV/11100190/en. Note that there are different urls for french and english datasets. This url doesn't return the data, rather it returns a url for a zip file.
+
+```json
+{"status":"SUCCESS","object":"https://www150.statcan.gc.ca/n1/tbl/csv/11100190-eng.zip"}
+```
+
+```{r}
+
+# I don't want to abuse the statcan site so I'm pulling from a cache if it's available
+cachePath = tools::R_user_dir("statcan", "cache")
+cacheFilepath = file.path(cachePath, "11100190.rds")
+if (file.exists(cacheFilepath)) {
+  table11100190 = readRDS(cacheFilepath)
+} else {
+  zipfile = tempfile()
+  download.file("https://www150.statcan.gc.ca/n1/tbl/csv/11100190-eng.zip", zipfile)
+  unzip(zipfile, exdir = dirname(zipfile))
+  table11100190 = read.csv(file.path(dirname(zipfile), "11100190.csv"))
+  dir.create(cachePath, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(table11100190, cacheFilepath)
+}
+
+knitr::kable(head(table11100190[,1:5]))
+```
+
+It's not clear from the CBC article which Economic Family type is being used, but looking at the data, "Alberta	Economic families and persons not in an economic family" seems to be the likeliest one.
+
+```{r}
+knitr::kable(table11100190[table11100190$REF_DATE==2015 & 
+                      table11100190$`Income.concept`=="Median after-tax income" &
+                      table11100190$GEO=="Alberta" &
+                      !is.na(table11100190$VALUE), 
+                      c("REF_DATE", "GEO", "Economic.family.type", "VALUE")])
+```
+
+A slight difference between the data in the CBC graphic and what we're working with, is that they're using data in "2018 constant dollars" and as of the time I'm writing this, that data set is reporting "2019 constant dollars". I could  convert but it's probably not important for what I'm trying to do.
+
+The Statcan dataset has a lot more information than just provincial data. It has data for most of the major cities, and data aggregated for some of the regions. So, in additional to filtering by Economic family type, and Income concept, we need to filter by GEO.
+
+Putting all this together, I can make my first attempt a the chart.
+
+```{r}
+
+provinces <- c("Canada", "British Columbia", "Alberta", "Saskatchewan", "Manitoba", "Ontario", "Quebec", "New Brunswick", "Nova Scotia", "Prince Edward Island", "Newfoundland and Labrador")
+
+medianincome = table11100190[(table11100190$REF_DATE == 2015 | table11100190$REF_DATE == 2018) &
+                        table11100190$`Economic.family.type` == "Economic families and persons not in an economic family" &
+                        table11100190$`Income.concept` == "Median after-tax income" &
+                        table11100190$GEO %in% provinces, ]
+
+barplot(VALUE ~ REF_DATE + GEO, medianincome, beside = TRUE)
+```
+
+Note the use of the ~ in the call to barplot. This is the "formula method" for creating barplots which, although being first method mentioned in the online help, doesn't seem to show up in a lot of samples on the web.
+
+The biggest problem is that most of the province names are hidden to avoid overwriting each other. The CBC chart wisely uses abbreviations to avoid this.
+
+```{r}
+abbrev = c("CAN", "BC", "AB", "SK", "MB", "ON", "QC", "NS", "NB", "PEI", "NL");
+
+provabbreviations <- data.frame(GEO = provinces, Abbrev = abbrev)
+medianincome2 <- merge(medianincome, provabbreviations)
+
+barplot(VALUE ~ REF_DATE + Abbrev, medianincome2, beside = TRUE)
+```
+This gets rid of the overlapping names, but it doesn't respect the order I had in my provinces data frame. The R approach (at least in Base R) is to create the abbreviations as a "factor" and specify a level with the correct order.
+
+```{r}
+provabbreviations <- data.frame(GEO = provinces, Abbrev = factor(abbrev, levels = abbrev))
+medianincome2 <- merge(medianincome, provabbreviations)
+
+barplot(VALUE ~ REF_DATE + Abbrev, medianincome2, beside = TRUE)
+```
+
+I spend quite a while playing with the various settings trying to get as close to the CBC chart as possible, and I'm sure someone who knows more about R plots could vastly improve this, but here's what I came up with.
+
+```{r}
+# mar order is bottom, left, top, and right. The default is c(5.1, 4.1, 4.1, 2.1) lines of text
+# inset is fraction of chart
+par(mar = c(5.1, 4.1, 6.1, 2.1), xpd = TRUE)
+barplot(VALUE~REF_DATE + Abbrev, medianincome2, beside = TRUE, col = c("red", "blue"), 
+        border = NA, xlab = NA, ylab = NA, yaxt="n")
+axis(2, las = 1, at = c(0, 10000, 30000, 50000, 70000))
+title(main = "Median after-tax income, by province", sub = "Source : StatCan Table 11-10-0190-01", adj = "0")
+legend("topleft", inset = c(0, -0.2), legend = c("2015", "2018"), fill = c("red", "blue"), border = NA, horiz = TRUE, bty = "n")
+
+```
+Not bad, although I found it quite difficult to find all the right levers and knobs to get what I wanted. Next time  I'll try and do the same thing, this time leveraging libraries to import, manipulate the data, and produce the chart.

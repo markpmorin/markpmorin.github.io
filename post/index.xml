@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Posts on Mark&#39;s Blog</title>
+    <link>http://markpmorin.github.io/post/</link>
+    <description>Recent content in Posts on Mark&#39;s Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 25 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Alberta Median Income Using R</title>
+      <link>http://markpmorin.github.io/post/2021-10-25-alberta-median-income-using-r/</link>
+      <pubDate>Mon, 25 Oct 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://markpmorin.github.io/post/2021-10-25-alberta-median-income-using-r/</guid>
+      <description>I ran across this article on the CBC website “Albertans still make the most money, but other provinces are catching up” and it has the following chart:
+The size of the difference between Alberta and the other Canadian provinces surprises me, but it cites the relevant StatsCan Table so I should be able to reproduce this. Sounds like a nice challenge for my nascent R skills.
+I’m a complete beginner with R, so none of the following should be interpreted as best practice.</description>
+    </item>
+    
+  </channel>
+</rss>

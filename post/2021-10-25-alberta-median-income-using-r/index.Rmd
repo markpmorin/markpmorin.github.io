@@ -58,7 +58,9 @@ if (file.exists(cacheFilepath)) {
   zipfile = tempfile()
   download.file("https://www150.statcan.gc.ca/n1/tbl/csv/11100190-eng.zip", zipfile)
   unzip(zipfile, exdir = dirname(zipfile))
-  table11100190 = read.csv(file.path(dirname(zipfile), "11100190.csv"))
+  # Note check.names to avoid having column names fixed up with periods
+  # to produce proper R identifies. This requires we use backticks to access these columns
+  table11100190 = read.csv(file.path(dirname(zipfile), "11100190.csv"), check.names = FALSE)
   dir.create(cachePath, recursive = TRUE, showWarnings = FALSE)
   saveRDS(table11100190, cacheFilepath)
 }
@@ -70,13 +72,13 @@ It's not clear from the CBC article which Economic Family type is being used, bu
 
 ```{r}
 knitr::kable(table11100190[table11100190$REF_DATE==2015 & 
-                      table11100190$`Income.concept`=="Median after-tax income" &
+                      table11100190$`Income concept`=="Median after-tax income" &
                       table11100190$GEO=="Alberta" &
                       !is.na(table11100190$VALUE), 
-                      c("REF_DATE", "GEO", "Economic.family.type", "VALUE")])
+                      c("REF_DATE", "GEO", "Economic family type", "VALUE")])
 ```
 
-A slight difference between the data in the CBC graphic and what we're working with, is that they're using data in "2018 constant dollars" and as of the time I'm writing this, that data set is reporting "2019 constant dollars". I could  convert but it's probably not important for what I'm trying to do.
+A slight difference between the data in the CBC graphic and what we're working with, is that they're using data in "2018 constant dollars" and as of the time I'm writing this, that data set is reporting "2019 constant dollars".
 
 The Statcan dataset has a lot more information than just provincial data. It has data for most of the major cities, and data aggregated for some of the regions. So, in additional to filtering by Economic family type, and Income concept, we need to filter by GEO.
 
@@ -87,8 +89,8 @@ Putting all this together, I can make my first attempt a the chart.
 provinces <- c("Canada", "British Columbia", "Alberta", "Saskatchewan", "Manitoba", "Ontario", "Quebec", "New Brunswick", "Nova Scotia", "Prince Edward Island", "Newfoundland and Labrador")
 
 medianincome = table11100190[(table11100190$REF_DATE == 2015 | table11100190$REF_DATE == 2018) &
-                        table11100190$`Economic.family.type` == "Economic families and persons not in an economic family" &
-                        table11100190$`Income.concept` == "Median after-tax income" &
+                        table11100190$`Economic family type` == "Economic families and persons not in an economic family" &
+                        table11100190$`Income concept` == "Median after-tax income" &
                         table11100190$GEO %in% provinces, ]
 
 barplot(VALUE ~ REF_DATE + GEO, medianincome, beside = TRUE)

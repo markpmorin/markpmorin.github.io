@@ -1,0 +1,135 @@
+---
+title: Alberta Median Income Using Cansim and Tidyverse
+author: Mark Morin
+date: '2021-10-26'
+slug: []
+categories: []
+tags: []
+---
+
+In the [previous post](/post/2021-10-25-alberta-median-income-using-r/) I looked reproducing the chart from the CBC article "[Albertans still make the most money, but other provinces are catching up](https://www.cbc.ca/news/canada/calgary/alberta-2018-median-average-income-canada-provinces-1.5473881)" using base R functionality. In this post I'll try and do the same using the [cansim](https://cran.r-project.org/web/packages/cansim/vignettes/cansim.html) package to retrieve StatCan data, and the [Tidyverse](https://www.tidyverse.org/) tools to wrangle the data and create the chart.
+
+```{r setup, message = FALSE, warning = FALSE}
+library(cansim)
+library(tidyverse)
+```
+
+Although the cansim package has the ability to [cache data in a SQLLite database](https://cran.r-project.org/web/packages/cansim/vignettes/working_with_large_tables.html), for now I'll continue to manually manage this. I need to turn this into a function at a minimum.
+
+```{r}
+cachePath = tools::R_user_dir("statcan", "cache")
+cacheFilepath = file.path(cachePath, "cansim11100190.rds")
+if (file.exists(cacheFilepath)) {
+  cansim11100190 = readRDS(cacheFilepath)
+} else {
+  cansim11100190 = get_cansim("11100190",)
+  dir.create(cachePath, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(table11100190, cacheFilepath)
+}
+
+knitr::kable(head(cansim11100190[, 1:10]))
+```
+
+The cansim documentation says it normalizes the data "by setting all units to counts/dollars instead of millions". Digging into this some more, cansim tables have a SCALAR FACTOR that can change the units of VALUE. For example in the 11100190 table where Income concept is "Number of people", SCALAR FACTOR is Thousands. Cansim adds a val_norm column with a non-scaled value. Details on the csv format can be found [here](https://www.statcan.gc.ca/en/developers/csv/user-guide).
+
+Here's filtering the data using the tidyverse way. It's nice not having to repeat the table name over and over.
+
+```{r}
+medianincome <- cansim11100190 %>% filter(`Income concept` == "Median after-tax income",
+                                          `Economic family type` == "Economic families and persons not in an economic family",
+                                          REF_DATE %in% c(2015, 2018))
+```
+
+And finally here's the chart using ggplot2. 
+
+```{r}
+ggplot(medianincome) +
+geom_col(mapping = aes(x = GEO, y = VALUE, fill = REF_DATE), position = "dodge")
+```
+
+We have the same problem with province names overlapping, but that I'm using cansim I can call add_provincial_abbreviations that creates a new table with an abbreviation column called GEO.abb. I hadn't filtered for province data yet and the add_provincial_abbreviations function left those as NAs so I was able to leverage it for that as well. It even adds it as a factor so I get (almost) the right order (I'll take it).
+
+```{r}
+medianincome2 <- add_provincial_abbreviations(medianincome) %>% filter(!is.na(GEO.abb))
+
+ggplot(medianincome2) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = "dodge")
+```
+
+And after a lot of fiddling, here's my attempt at matching the CBC chart.
+
+```{r}
+ggplot(medianincome2) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = "dodge") +
+scale_fill_manual(values = c("red", "blue")) +
+scale_y_continuous(labels = scales::dollar_format(), 
+                   breaks = c(10000, 30000, 50000, 70000), name = element_blank()) +
+labs(title = "Median after-tax income, by province", 
+     subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars.",
+     caption = "Source : StatCan Table 11-10-0190-01") +
+theme_bw() +
+theme(plot.title = element_text(face = "bold", size = "14"), 
+      plot.caption = element_text(hjust = 0, colour = "darkgrey"), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      legend.position = "top", 
+      legend.justification = "left",
+      panel.grid.major.x = element_blank() # remove x-grid
+      ) 
+```
+That is pretty good if I do say so myself. I found it much easier to change the appearance of this chart due to a combination of it being easier to use, and better support online.
+
+So there we have it - Alberta incomes are signicantly higher. Straight from Statistics Canada. But why is this? I wouldn't have guessed the oil patch was big enough all by itself to have this effect. Also, this is median income so it's not as if a few rich guys at the top are going to have this effect. This is after-tax income so is it possible that a lower provincial tax rate is part of this? We have Median income available so let's take a look at that.
+
+```{r}
+cansim11100190 <- add_provincial_abbreviations(cansim11100190)
+
+ggplot(cansim11100190 %>% filter(!is.na(GEO.abb), 
+                                 REF_DATE %in% c(2015, 2018),
+                                 `Economic family type` == "Economic families and persons not in an economic family",
+                                 `Income concept` == "Median total income")) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = "dodge") +
+scale_fill_manual(values = c("red", "blue")) +
+scale_y_continuous(labels = scales::dollar_format(), 
+                   breaks = c(10000, 30000, 50000, 70000), name = element_blank()) +
+labs(title = "Median total income, by province", 
+     subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars.",
+     caption = "Source : StatCan Table 11-10-0190-01") +
+theme_bw() +
+theme(plot.title = element_text(face = "bold", size = "14"), 
+      plot.caption = element_text(hjust = 0, colour = "darkgrey"), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      legend.position = "top", 
+      legend.justification = "left",
+      panel.grid.major.x = element_blank() # remove x-grid
+      ) 
+
+```
+
+How does this line up with historical oil and gas prices? Is this still true now a few years after the CBC article was written? Let's try charting Median afer-tax income for a longer time period to see if there are important changes over time relative to other provinces.
+
+```{r}
+ggplot(cansim11100190 %>% filter(!is.na(GEO.abb), 
+                                 `Economic family type` == "Economic families and persons not in an economic family",
+                                 `Income concept` == "Median total income")) +
+geom_line(mapping = aes(x = REF_DATE, y = VALUE, colour = GEO, group = GEO), size = 1) +
+  scale_y_continuous(labels = scales::dollar_format(), 
+                     name = element_blank(), limits = c(0, NA)) +
+  labs(title = "Median after-tax income, by province", 
+         subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars.",
+         caption = "Source : StatCan Table 11-10-0190-01") +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = "14"), 
+      plot.caption = element_text(hjust = 0, colour = "darkgrey"), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      axis.text.x = element_text(angle = 45, hjust=1),
+      legend.position = "top", 
+      legend.justification = "left"
+      )
+```
+Alberta has always been towards the high side, but income really diverged from the rest of Canada after around 2005. I'll try and dig into the details in my next post.

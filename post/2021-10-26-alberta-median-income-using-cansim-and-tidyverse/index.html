@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>Alberta Median Income Using Cansim and Tidyverse | Mark&#39;s Blog</title>
+<meta name="keywords" content="" />
+<meta name="description" content="In the previous post I looked reproducing the chart from the CBC article “Albertans still make the most money, but other provinces are catching up” using base R functionality. In this post I’ll try and do the same using the cansim package to retrieve StatCan data, and the Tidyverse tools to wrangle the data and create the chart.
+library(cansim) library(tidyverse) Although the cansim package has the ability to cache data in a SQLLite database, for now I’ll continue to manually manage this.">
+<meta name="author" content="Mark Morin">
+<link rel="canonical" href="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/" />
+<link crossorigin="anonymous" href="/assets/css/stylesheet.min.6f60056d44d3f7eb69a4bc6c332b59960f3a995802bded244750232f33713c49.css" integrity="sha256-b2AFbUTT9&#43;tppLxsMytZlg86mVgCve0kR1AjLzNxPEk=" rel="preload stylesheet" as="style">
+<script defer crossorigin="anonymous" src="/assets/js/highlight.min.7680afc38aa6b15ddf158a4f3780b7b1f7dde7e91d26f073e6229bb7a0793c92.js" integrity="sha256-doCvw4qmsV3fFYpPN4C3sffd5&#43;kdJvBz5iKbt6B5PJI="
+    onload="hljs.initHighlightingOnLoad();"></script>
+<link rel="icon" href="http://markpmorin.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://markpmorin.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://markpmorin.github.io/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://markpmorin.github.io/apple-touch-icon.png">
+<link rel="mask-icon" href="http://markpmorin.github.io/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<meta name="generator" content="Hugo 0.88.1" />
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --hljs-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:title" content="Alberta Median Income Using Cansim and Tidyverse" />
+<meta property="og:description" content="In the previous post I looked reproducing the chart from the CBC article “Albertans still make the most money, but other provinces are catching up” using base R functionality. In this post I’ll try and do the same using the cansim package to retrieve StatCan data, and the Tidyverse tools to wrangle the data and create the chart.
+library(cansim) library(tidyverse) Although the cansim package has the ability to cache data in a SQLLite database, for now I’ll continue to manually manage this." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/" /><meta property="article:section" content="post" />
+<meta property="article:published_time" content="2021-10-26T00:00:00&#43;00:00" />
+<meta property="article:modified_time" content="2021-10-26T00:00:00&#43;00:00" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Alberta Median Income Using Cansim and Tidyverse"/>
+<meta name="twitter:description" content="In the previous post I looked reproducing the chart from the CBC article “Albertans still make the most money, but other provinces are catching up” using base R functionality. In this post I’ll try and do the same using the cansim package to retrieve StatCan data, and the Tidyverse tools to wrangle the data and create the chart.
+library(cansim) library(tidyverse) Although the cansim package has the ability to cache data in a SQLLite database, for now I’ll continue to manually manage this."/>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "http://markpmorin.github.io/post/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Alberta Median Income Using Cansim and Tidyverse",
+      "item": "http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Alberta Median Income Using Cansim and Tidyverse",
+  "name": "Alberta Median Income Using Cansim and Tidyverse",
+  "description": "In the previous post I looked reproducing the chart from the CBC article “Albertans still make the most money, but other provinces are catching up” using base R functionality. In this post I’ll try and do the same using the cansim package to retrieve StatCan data, and the Tidyverse tools to wrangle the data and create the chart.\nlibrary(cansim) library(tidyverse) Although the cansim package has the ability to cache data in a SQLLite database, for now I’ll continue to manually manage this.",
+  "keywords": [
+    
+  ],
+  "articleBody": "  In the previous post I looked reproducing the chart from the CBC article “Albertans still make the most money, but other provinces are catching up” using base R functionality. In this post I’ll try and do the same using the cansim package to retrieve StatCan data, and the Tidyverse tools to wrangle the data and create the chart.\nlibrary(cansim) library(tidyverse) Although the cansim package has the ability to cache data in a SQLLite database, for now I’ll continue to manually manage this. I need to turn this into a function at a minimum.\ncachePath = tools::R_user_dir(\"statcan\", \"cache\") cacheFilepath = file.path(cachePath, \"cansim11100190.rds\") if (file.exists(cacheFilepath)) { cansim11100190 = readRDS(cacheFilepath) } else { cansim11100190 = get_cansim(\"11100190\",) dir.create(cachePath, recursive = TRUE, showWarnings = FALSE) saveRDS(table11100190, cacheFilepath) } knitr::kable(head(cansim11100190[, 1:10]))   REF_DATE GEO DGUID UOM UOM_ID SCALAR_FACTOR SCALAR_ID VECTOR COORDINATE VALUE    1976 Canada 2016A000011124 Number 223 thousands 3 v96411791 1.1.1 23064  1976 Canada 2016A000011124 Number 223 thousands 3 v96411792 1.1.2 21042  1976 Canada 2016A000011124 Number 223 thousands 3 v96411793 1.1.3 1685  1976 Canada 2016A000011124 Number 223 thousands 3 v96411794 1.1.4 933  1976 Canada 2016A000011124 Number 223 thousands 3 v96411795 1.1.5 752  1976 Canada 2016A000011124 Number 223 thousands 3 v96411796 1.1.6 19357    The cansim documentation says it normalizes the data “by setting all units to counts/dollars instead of millions”. Digging into this some more, cansim tables have a SCALAR FACTOR that can change the units of VALUE. For example in the 11100190 table where Income concept is “Number of people”, SCALAR FACTOR is Thousands. Cansim adds a val_norm column with a non-scaled value. Details on the csv format can be found here.\nHere’s filtering the data using the tidyverse way. It’s nice not having to repeat the table name over and over.\nmedianincome % filter(`Income concept` == \"Median after-tax income\", `Economic family type` == \"Economic families and persons not in an economic family\", REF_DATE %in% c(2015, 2018)) And finally here’s the chart using ggplot2.\nggplot(medianincome) + geom_col(mapping = aes(x = GEO, y = VALUE, fill = REF_DATE), position = \"dodge\") We have the same problem with province names overlapping, but that I’m using cansim I can call add_provincial_abbreviations that creates a new table with an abbreviation column called GEO.abb. I hadn’t filtered for province data yet and the add_provincial_abbreviations function left those as NAs so I was able to leverage it for that as well. It even adds it as a factor so I get (almost) the right order (I’ll take it).\nmedianincome2 % filter(!is.na(GEO.abb)) ggplot(medianincome2) + geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = \"dodge\") And after a lot of fiddling, here’s my attempt at matching the CBC chart.\nggplot(medianincome2) + geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = \"dodge\") + scale_fill_manual(values = c(\"red\", \"blue\")) + scale_y_continuous(labels = scales::dollar_format(), breaks = c(10000, 30000, 50000, 70000), name = element_blank()) + labs(title = \"Median after-tax income, by province\", subtitle = \"Figures reported in inflation-adjusted (constant 2019) dollars.\", caption = \"Source : StatCan Table 11-10-0190-01\") + theme_bw() + theme(plot.title = element_text(face = \"bold\", size = \"14\"), plot.caption = element_text(hjust = 0, colour = \"darkgrey\"), # default is right aligned legend.title = element_blank(), # remove REF_DATE from legend axis.title.x = element_blank(), # remove ABBREV from x-axis axis.title.y = element_blank(), # remove VALUE from y-axis legend.position = \"top\", legend.justification = \"left\", panel.grid.major.x = element_blank() # remove x-grid )  That is pretty good if I do say so myself. I found it much easier to change the appearance of this chart due to a combination of it being easier to use, and better support online.\nSo there we have it - Alberta incomes are signicantly higher. Straight from Statistics Canada. But why is this? I wouldn’t have guessed the oil patch was big enough all by itself to have this effect. Also, this is median income so it’s not as if a few rich guys at the top are going to have this effect. This is after-tax income so is it possible that a lower provincial tax rate is part of this? We have Median income available so let’s take a look at that.\ncansim11100190 % filter(!is.na(GEO.abb), REF_DATE %in% c(2015, 2018), `Economic family type` == \"Economic families and persons not in an economic family\", `Income concept` == \"Median total income\")) + geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = \"dodge\") + scale_fill_manual(values = c(\"red\", \"blue\")) + scale_y_continuous(labels = scales::dollar_format(), breaks = c(10000, 30000, 50000, 70000), name = element_blank()) + labs(title = \"Median total income, by province\", subtitle = \"Figures reported in inflation-adjusted (constant 2019) dollars.\", caption = \"Source : StatCan Table 11-10-0190-01\") + theme_bw() + theme(plot.title = element_text(face = \"bold\", size = \"14\"), plot.caption = element_text(hjust = 0, colour = \"darkgrey\"), # default is right aligned legend.title = element_blank(), # remove REF_DATE from legend axis.title.x = element_blank(), # remove ABBREV from x-axis axis.title.y = element_blank(), # remove VALUE from y-axis legend.position = \"top\", legend.justification = \"left\", panel.grid.major.x = element_blank() # remove x-grid )  How does this line up with historical oil and gas prices? Is this still true now a few years after the CBC article was written? Let’s try charting Median afer-tax income for a longer time period to see if there are important changes over time relative to other provinces.\nggplot(cansim11100190 %% filter(!is.na(GEO.abb), `Economic family type` == \"Economic families and persons not in an economic family\", `Income concept` == \"Median total income\")) + geom_line(mapping = aes(x = REF_DATE, y = VALUE, colour = GEO, group = GEO), size = 1) + scale_y_continuous(labels = scales::dollar_format(), name = element_blank(), limits = c(0, NA)) + labs(title = \"Median after-tax income, by province\", subtitle = \"Figures reported in inflation-adjusted (constant 2019) dollars.\", caption = \"Source : StatCan Table 11-10-0190-01\") + theme_bw() + theme(plot.title = element_text(face = \"bold\", size = \"14\"), plot.caption = element_text(hjust = 0, colour = \"darkgrey\"), # default is right aligned legend.title = element_blank(), # remove REF_DATE from legend axis.title.x = element_blank(), # remove ABBREV from x-axis axis.title.y = element_blank(), # remove VALUE from y-axis axis.text.x = element_text(angle = 45, hjust=1), legend.position = \"top\", legend.justification = \"left\" ) Alberta has always been towards the high side, but income really diverged from the rest of Canada after around 2005. I’ll try and dig into the details in my next post.\n",
+  "wordCount" : "1049",
+  "inLanguage": "en",
+  "datePublished": "2021-10-26T00:00:00Z",
+  "dateModified": "2021-10-26T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "Mark Morin"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Mark's Blog",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://markpmorin.github.io/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://markpmorin.github.io/" accesskey="h" title="Mark&#39;s Blog (Alt + H)">Mark&#39;s Blog</a>
+            <span class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <ul id="menu">
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title">
+      Alberta Median Income Using Cansim and Tidyverse
+    </h1>
+    <div class="post-meta">October 26, 2021&nbsp;·&nbsp;Mark Morin
+
+</div>
+  </header> 
+  <div class="post-content">
+<script src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>In the <a href="/post/2021-10-25-alberta-median-income-using-r/">previous post</a> I looked reproducing the chart from the CBC article “<a href="https://www.cbc.ca/news/canada/calgary/alberta-2018-median-average-income-canada-provinces-1.5473881">Albertans still make the most money, but other provinces are catching up</a>” using base R functionality. In this post I’ll try and do the same using the <a href="https://cran.r-project.org/web/packages/cansim/vignettes/cansim.html">cansim</a> package to retrieve StatCan data, and the <a href="https://www.tidyverse.org/">Tidyverse</a> tools to wrangle the data and create the chart.</p>
+<pre class="r"><code>library(cansim)
+library(tidyverse)</code></pre>
+<p>Although the cansim package has the ability to <a href="https://cran.r-project.org/web/packages/cansim/vignettes/working_with_large_tables.html">cache data in a SQLLite database</a>, for now I’ll continue to manually manage this. I need to turn this into a function at a minimum.</p>
+<pre class="r"><code>cachePath = tools::R_user_dir(&quot;statcan&quot;, &quot;cache&quot;)
+cacheFilepath = file.path(cachePath, &quot;cansim11100190.rds&quot;)
+if (file.exists(cacheFilepath)) {
+  cansim11100190 = readRDS(cacheFilepath)
+} else {
+  cansim11100190 = get_cansim(&quot;11100190&quot;,)
+  dir.create(cachePath, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(table11100190, cacheFilepath)
+}
+
+knitr::kable(head(cansim11100190[, 1:10]))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">REF_DATE</th>
+<th align="left">GEO</th>
+<th align="left">DGUID</th>
+<th align="left">UOM</th>
+<th align="left">UOM_ID</th>
+<th align="left">SCALAR_FACTOR</th>
+<th align="left">SCALAR_ID</th>
+<th align="left">VECTOR</th>
+<th align="left">COORDINATE</th>
+<th align="right">VALUE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411791</td>
+<td align="left">1.1.1</td>
+<td align="right">23064</td>
+</tr>
+<tr class="even">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411792</td>
+<td align="left">1.1.2</td>
+<td align="right">21042</td>
+</tr>
+<tr class="odd">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411793</td>
+<td align="left">1.1.3</td>
+<td align="right">1685</td>
+</tr>
+<tr class="even">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411794</td>
+<td align="left">1.1.4</td>
+<td align="right">933</td>
+</tr>
+<tr class="odd">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411795</td>
+<td align="left">1.1.5</td>
+<td align="right">752</td>
+</tr>
+<tr class="even">
+<td align="left">1976</td>
+<td align="left">Canada</td>
+<td align="left">2016A000011124</td>
+<td align="left">Number</td>
+<td align="left">223</td>
+<td align="left">thousands</td>
+<td align="left">3</td>
+<td align="left">v96411796</td>
+<td align="left">1.1.6</td>
+<td align="right">19357</td>
+</tr>
+</tbody>
+</table>
+<p>The cansim documentation says it normalizes the data “by setting all units to counts/dollars instead of millions”. Digging into this some more, cansim tables have a SCALAR FACTOR that can change the units of VALUE. For example in the 11100190 table where Income concept is “Number of people”, SCALAR FACTOR is Thousands. Cansim adds a val_norm column with a non-scaled value. Details on the csv format can be found <a href="https://www.statcan.gc.ca/en/developers/csv/user-guide">here</a>.</p>
+<p>Here’s filtering the data using the tidyverse way. It’s nice not having to repeat the table name over and over.</p>
+<pre class="r"><code>medianincome &lt;- cansim11100190 %&gt;% filter(`Income concept` == &quot;Median after-tax income&quot;,
+                                          `Economic family type` == &quot;Economic families and persons not in an economic family&quot;,
+                                          REF_DATE %in% c(2015, 2018))</code></pre>
+<p>And finally here’s the chart using ggplot2.</p>
+<pre class="r"><code>ggplot(medianincome) +
+geom_col(mapping = aes(x = GEO, y = VALUE, fill = REF_DATE), position = &quot;dodge&quot;)</code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>We have the same problem with province names overlapping, but that I’m using cansim I can call add_provincial_abbreviations that creates a new table with an abbreviation column called GEO.abb. I hadn’t filtered for province data yet and the add_provincial_abbreviations function left those as NAs so I was able to leverage it for that as well. It even adds it as a factor so I get (almost) the right order (I’ll take it).</p>
+<pre class="r"><code>medianincome2 &lt;- add_provincial_abbreviations(medianincome) %&gt;% filter(!is.na(GEO.abb))
+
+ggplot(medianincome2) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = &quot;dodge&quot;)</code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>And after a lot of fiddling, here’s my attempt at matching the CBC chart.</p>
+<pre class="r"><code>ggplot(medianincome2) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = &quot;dodge&quot;) +
+scale_fill_manual(values = c(&quot;red&quot;, &quot;blue&quot;)) +
+scale_y_continuous(labels = scales::dollar_format(), 
+                   breaks = c(10000, 30000, 50000, 70000), name = element_blank()) +
+labs(title = &quot;Median after-tax income, by province&quot;, 
+     subtitle = &quot;Figures reported in inflation-adjusted (constant 2019) dollars.&quot;,
+     caption = &quot;Source : StatCan Table 11-10-0190-01&quot;) +
+theme_bw() +
+theme(plot.title = element_text(face = &quot;bold&quot;, size = &quot;14&quot;), 
+      plot.caption = element_text(hjust = 0, colour = &quot;darkgrey&quot;), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      legend.position = &quot;top&quot;, 
+      legend.justification = &quot;left&quot;,
+      panel.grid.major.x = element_blank() # remove x-grid
+      ) </code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/figure-html/unnamed-chunk-5-1.png" width="672" />
+That is pretty good if I do say so myself. I found it much easier to change the appearance of this chart due to a combination of it being easier to use, and better support online.</p>
+<p>So there we have it - Alberta incomes are signicantly higher. Straight from Statistics Canada. But why is this? I wouldn’t have guessed the oil patch was big enough all by itself to have this effect. Also, this is median income so it’s not as if a few rich guys at the top are going to have this effect. This is after-tax income so is it possible that a lower provincial tax rate is part of this? We have Median income available so let’s take a look at that.</p>
+<pre class="r"><code>cansim11100190 &lt;- add_provincial_abbreviations(cansim11100190)
+
+ggplot(cansim11100190 %&gt;% filter(!is.na(GEO.abb), 
+                                 REF_DATE %in% c(2015, 2018),
+                                 `Economic family type` == &quot;Economic families and persons not in an economic family&quot;,
+                                 `Income concept` == &quot;Median total income&quot;)) +
+geom_col(mapping = aes(x = GEO.abb, y = VALUE, fill = REF_DATE), position = &quot;dodge&quot;) +
+scale_fill_manual(values = c(&quot;red&quot;, &quot;blue&quot;)) +
+scale_y_continuous(labels = scales::dollar_format(), 
+                   breaks = c(10000, 30000, 50000, 70000), name = element_blank()) +
+labs(title = &quot;Median total income, by province&quot;, 
+     subtitle = &quot;Figures reported in inflation-adjusted (constant 2019) dollars.&quot;,
+     caption = &quot;Source : StatCan Table 11-10-0190-01&quot;) +
+theme_bw() +
+theme(plot.title = element_text(face = &quot;bold&quot;, size = &quot;14&quot;), 
+      plot.caption = element_text(hjust = 0, colour = &quot;darkgrey&quot;), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      legend.position = &quot;top&quot;, 
+      legend.justification = &quot;left&quot;,
+      panel.grid.major.x = element_blank() # remove x-grid
+      ) </code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>How does this line up with historical oil and gas prices? Is this still true now a few years after the CBC article was written? Let’s try charting Median afer-tax income for a longer time period to see if there are important changes over time relative to other provinces.</p>
+<pre class="r"><code>ggplot(cansim11100190 %&gt;% filter(!is.na(GEO.abb), 
+                                 `Economic family type` == &quot;Economic families and persons not in an economic family&quot;,
+                                 `Income concept` == &quot;Median total income&quot;)) +
+geom_line(mapping = aes(x = REF_DATE, y = VALUE, colour = GEO, group = GEO), size = 1) +
+  scale_y_continuous(labels = scales::dollar_format(), 
+                     name = element_blank(), limits = c(0, NA)) +
+  labs(title = &quot;Median after-tax income, by province&quot;, 
+         subtitle = &quot;Figures reported in inflation-adjusted (constant 2019) dollars.&quot;,
+         caption = &quot;Source : StatCan Table 11-10-0190-01&quot;) +
+  theme_bw() +
+  theme(plot.title = element_text(face = &quot;bold&quot;, size = &quot;14&quot;), 
+      plot.caption = element_text(hjust = 0, colour = &quot;darkgrey&quot;), # default is right aligned
+      legend.title = element_blank(), # remove REF_DATE from legend
+      axis.title.x = element_blank(), # remove ABBREV from x-axis
+      axis.title.y = element_blank(), # remove VALUE from y-axis
+      axis.text.x = element_text(angle = 45, hjust=1),
+      legend.position = &quot;top&quot;, 
+      legend.justification = &quot;left&quot;
+      )</code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/index_files/figure-html/unnamed-chunk-7-1.png" width="672" />
+Alberta has always been towards the high side, but income really diverged from the rest of Canada after around 2005. I’ll try and dig into the details in my next post.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+    <span>&copy; 2021 <a href="http://markpmorin.github.io/">Mark&#39;s Blog</a></span>
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://git.io/hugopapermod" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+    menu.onscroll = function () {
+        localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

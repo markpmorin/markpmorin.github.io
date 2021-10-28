@@ -1,0 +1,148 @@
+---
+title: Alberta Royalty Revenue
+author: Mark Morin
+date: '2021-10-27'
+slug: []
+categories: []
+tags: []
+---
+My [previous post](/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/) left me wondering just how crazy the oil and gas business was in Alberta during those years where median diverged from the rest of Canada. My own recollection is that after oil prices collapsed in the early 1980s, that gas made the biggest contribution to Alberta oil and gas business until the late 2000s when gas prices collapsed due to shale gas coming online, while at the same time all those enormous oilsands projects started coming online.
+
+Alberta has an open data site. I'll see what I can find there.
+
+Developer documentation is at <https://open.alberta.ca/interact/for-developers> and uses something called CKAN  the __Comprehensive Knowledge Archive Network__ for its API. It simple enough that you could probably just access this using http, but there is a [ckanr](https://docs.ropensci.org/ckanr/) package available so I'll use that. Reading the documentation it's probably really useful if you're using it to write data or any of the other advanced functionality.
+
+```{r setup, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(readxl)
+library(ckanr)
+library(cansim)
+```
+
+I decided to try and look at oil and gas royalties - it's not perfect and you can certainly ask questions as to whether or not royalties were set at an appropriate level at any point in time, but it should give some idea about how the industry was doing.  I was very quickly able to find what I was looking for using the [Open Data Portal](https://open.alberta.ca/opendata) just by searching on "royalty" <https://open.alberta.ca/opendata?q=royalty&sort=score+desc>. The data I'm looking for was in the first of nine results returned.
+
+My first attempt to do this using the API with package_search was https://open.alberta.ca/api/action/package_search?q=royalty but this returns 221 results and despite the length, it doesn't include the result I'm looking for. The CKAN documentation doesn't have any information about it's search syntax, but I was eventually able to figure out that it uses [Solr](https://solr.apache.org/) which gave me some insight into it's search syntax.
+
+I fiddled around with this for awhile, trying to search by specific fields, and making sure I was doing case insensitive searches, but there's clearly a lot about this I don't understand. I was eventually able to craft a query <https://open.alberta.ca/api/action/package_search?q=name:*historical*royalty*&sort=score+desc> that returned the data I was interested in, but only because I already knew the name of the resource I was looking for.
+
+In order to retrieve the package I think I need to use package_show which takes an id parameter.Looking at the results from my previous search, I can see the package_id is 382b7a1e-9c34-47c7-9531-38e67ca5441d. And passing this to package_show works <https://open.alberta.ca/api/action/package_show?id=382b7a1e-9c34-47c7-9531-38e67ca5441d>. This doesn't smell right and looking at the result of <https://open.alberta.ca/api/action/package_list> this id isn't even in the list, however historical-royalty-revenue is and <https://open.alberta.ca/api/action/package_show?id=historical-royalty-revenue> works. I'm not sure what to make of that. "historical-royalty-revenue" is the name of the package - perhaps package_list lists the names, not the package_id (which seems very reasonable). And perhaps package_show's id parameter is really id_or_name?
+
+Let's see how this looks in R. 
+```{r}
+
+ckanr_setup(url = "http://open.alberta.ca/")
+result <- package_show("historical-royalty-revenue")
+result
+```
+The various files associated with this package show up as a list or resources. I want the url from the most recent one.  I assume they're always list these newest first? Unfortunately the file we're retrieving is designed more for people than computers, so this isn't just a table in a spreadsheet. This requires some additional effort to make sense of it. Again, this is really a manual process in terms of figuring out where the data is, and where the column names are.
+
+```{r}
+url <- result[["resources"]][[1]][["url"]]
+
+tmp <- tempfile(fileext = ".xlsx")
+download.file(url, tmp, mode = "wb")
+suppressMessages(
+  energy_royalty_revenue_worksheet <- read_xlsx(tmp, col_names = FALSE)
+)
+
+energy_royalty_revenue <- energy_royalty_revenue_worksheet[33:40,1:50]
+colnames(energy_royalty_revenue) <- energy_royalty_revenue_worksheet[31,1:50]
+colnames(energy_royalty_revenue)[1] <- "source"
+
+knitr::kable(energy_royalty_revenue)
+```
+
+The wide format isn't what R expects when charting so I need to un-pivot this
+
+```{r}
+energy_royalty_revenue_long <- energy_royalty_revenue %>% 
+  pivot_longer(names_to = "fiscalyear", values_to = "value", cols = matches("\\d\\d\\d\\d\\/\\d\\d"), values_drop_na = TRUE) %>%
+  filter(source != "Special Royalty Features (for 2009/10 and 2010/11 is the Energy Industry Drilling Stimulus program",
+         source != "Rentals & Fees",
+         source != "ARTC")
+
+knitr::kable(head(energy_royalty_revenue_long))
+```
+
+The values come through as text. I'm going to guess that it looks at the first few rows to figure out the data type for each column, and since it finds column header names, it goes with text. I'll have to give that a try wiht a sane spreadsheet structure.
+
+```{r}
+energy_royalty_revenue_long$value <- as.numeric(energy_royalty_revenue_long$value)
+
+knitr::kable(head(energy_royalty_revenue_long))
+```
+
+And finally we can build our chart
+
+```{r}
+ggplot(energy_royalty_revenue_long) + 
+  geom_col(aes(x = fiscalyear, y = value, fill = source)) +
+  ylab("$ Millions") +
+  labs(title = "Alberta Energy Royalty Revenue", 
+       caption = "Source : Government of Alberta") +
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 60, hjust=1)) +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+
+```
+I need to spend some time figuring out how to tell R to use different colours. I wonder if these are 2020 dollars, or actual dollars in the year they were reporting? Looking at page 30 of  https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf, although not exact match to the numbers we see here, it's pretty clear they're not adjusted to current dollars.
+
+I believe using the cpi is how to do this, but again you shouldn't trust this.
+```{r}
+suppressMessages(
+  cpi <- get_cansim("18-10-0005-01")
+)
+
+cpicanada = cpi %>% filter(GEO == "Canada", `Products and product groups` == "All-items", UOM == "2002=100")
+
+cpicanada$conversion <- cpicanada[cpicanada$REF_DATE==2019,]$VALUE / cpicanada$VALUE
+
+energy_royalty_revenue_long$year <- substr(energy_royalty_revenue_long$fiscalyear, 1, 4)
+energy_royalty_revenue_long$value2019 <- energy_royalty_revenue_long$value * cpicanada$conversion[match(energy_royalty_revenue_long$year,cpicanada$REF_DATE)]
+
+ggplot(energy_royalty_revenue_long) + 
+  geom_col(aes(x = fiscalyear, y = value2019, fill = source)) +
+  ylab("$ Millions") +
+  labs(title = "Alberta Energy Royalty Revenue", 
+       subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars).",
+       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01") +
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 60, hjust=1)) +
+    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+
+```
+Royalty income in the late 70s/early 80s were enormous. Keep in mind that Alberta's population would have been significantly smaller then. I wonder what this looks like on a per capita basis.
+
+```{r}
+suppressMessages(
+  population_estimates <- get_cansim("17-10-0005") %>% filter(GEO == "Alberta", 
+                                                              UOM == "Persons", 
+                                                              `Age group` == "All ages",
+                                                              Sex == "Both sexes")
+)
+
+energy_royalty_revenue_long$percapita <- energy_royalty_revenue_long$value2019 * 1000000 /  population_estimates$VALUE[match(energy_royalty_revenue_long$year,population_estimates$REF_DATE)]
+
+ggplot(energy_royalty_revenue_long %>% drop_na(percapita)) + 
+  geom_col(aes(x = fiscalyear, y = percapita, fill = source)) +
+  ylab("$") +
+  labs(title = "Alberta Energy Per Capita Royalty Revenue", 
+       subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars).",
+       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01") +
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 60, hjust=1)) +
+    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+
+```
+
+
+For the Alberta Open Government license see https://open.alberta.ca/licence

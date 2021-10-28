@@ -6,7 +6,16 @@
     <description>Recent content in Posts on Mark&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 26 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 27 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Alberta Royalty Revenue</title>
+      <link>http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/</link>
+      <pubDate>Wed, 27 Oct 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/</guid>
+      <description>My previous post left me wondering just how crazy the oil and gas business was in Alberta during those years where median diverged from the rest of Canada. My own recollection is that after oil prices collapsed in the early 1980s, that gas made the biggest contribution to Alberta oil and gas business until the late 2000s when gas prices collapsed due to shale gas coming online, while at the same time all those enormous oilsands projects started coming online.</description>
+    </item>
+    
     <item>
       <title>Alberta Median Income Using Cansim and Tidyverse</title>
       <link>http://markpmorin.github.io/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/</link>

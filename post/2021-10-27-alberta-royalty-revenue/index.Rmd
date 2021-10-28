@@ -1,6 +1,6 @@
 ---
-title: Alberta Royalty Revenue
-author: Mark Morin
+title: "Alberta Royalty Revenue"
+author: "Mark Morin"
 date: '2021-10-27'
 slug: []
 categories: []
@@ -34,7 +34,7 @@ ckanr_setup(url = "http://open.alberta.ca/")
 result <- package_show("historical-royalty-revenue")
 result
 ```
-The various files associated with this package show up as a list or resources. I want the url from the most recent one.  I assume they're always list these newest first? Unfortunately the file we're retrieving is designed more for people than computers, so this isn't just a table in a spreadsheet. This requires some additional effort to make sense of it. Again, this is really a manual process in terms of figuring out where the data is, and where the column names are.
+The various files associated with this package show up as a list or resources. I want the url from the most recent one.  I assume they're always list these newest first? Unfortunately the file we're retrieving is designed more for people than computers, so this isn't just a table in a spreadsheet. I'm being very picky about the range I'm bringing in. Again, this is really a manual process in terms of figuring out where the data is, and where the column names are.
 
 ```{r}
 url <- result[["resources"]][[1]][["url"]]
@@ -42,11 +42,9 @@ url <- result[["resources"]][[1]][["url"]]
 tmp <- tempfile(fileext = ".xlsx")
 download.file(url, tmp, mode = "wb")
 suppressMessages(
-  energy_royalty_revenue_worksheet <- read_xlsx(tmp, col_names = FALSE)
+  energy_royalty_revenue <- read_xlsx(tmp, range = "B31:AZ37")
 )
 
-energy_royalty_revenue <- energy_royalty_revenue_worksheet[33:40,1:50]
-colnames(energy_royalty_revenue) <- energy_royalty_revenue_worksheet[31,1:50]
 colnames(energy_royalty_revenue)[1] <- "source"
 
 knitr::kable(energy_royalty_revenue)

@@ -42,10 +42,15 @@ url <- result[["resources"]][[1]][["url"]]
 tmp <- tempfile(fileext = ".xlsx")
 download.file(url, tmp, mode = "wb")
 suppressMessages(
-  energy_royalty_revenue <- read_xlsx(tmp, range = "B31:AZ37")
+  energy_royalty_revenue <- read_excel(tmp, skip = 30)
 )
-
 colnames(energy_royalty_revenue)[1] <- "source"
+
+# trying to make this somewhat resilient - but they could easily change names, or add/delete rows
+energy_royalty_revenue <- slice_head(energy_royalty_revenue, n = which(energy_royalty_revenue$source == "Non Renewable Resource Revenue") - 1)
+
+# Fix up this very long identifier that overflows the legend
+energy_royalty_revenue$source[energy_royalty_revenue$source == "Special Royalty Features (for 2009/10 and 2010/11 is the Energy Industry Drilling Stimulus program"] = "Special Royalty Features"
 
 knitr::kable(energy_royalty_revenue)
 ```
@@ -54,10 +59,7 @@ The wide format isn't what R expects when charting so I need to un-pivot this
 
 ```{r}
 energy_royalty_revenue_long <- energy_royalty_revenue %>% 
-  pivot_longer(names_to = "fiscalyear", values_to = "value", cols = matches("\\d\\d\\d\\d\\/\\d\\d"), values_drop_na = TRUE) %>%
-  filter(source != "Special Royalty Features (for 2009/10 and 2010/11 is the Energy Industry Drilling Stimulus program",
-         source != "Rentals & Fees",
-         source != "ARTC")
+  pivot_longer(names_to = "fiscalyear", values_to = "value", cols = matches("\\d\\d\\d\\d\\/\\d\\d"), values_drop_na = TRUE)
 
 knitr::kable(head(energy_royalty_revenue_long))
 ```
@@ -83,7 +85,7 @@ ggplot(energy_royalty_revenue_long) +
         legend.title = element_blank(),
         axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+  guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 
 ```
 I need to spend some time figuring out how to tell R to use different colours. I wonder if these are 2020 dollars, or actual dollars in the year they were reporting? Looking at page 30 of  https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf, although not exact match to the numbers we see here, it's pretty clear they're not adjusted to current dollars.
@@ -112,7 +114,7 @@ ggplot(energy_royalty_revenue_long) +
         legend.title = element_blank(),
         axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
-    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+    guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 
 ```
 Royalty income in the late 70s/early 80s were enormous. Keep in mind that Alberta's population would have been significantly smaller then. I wonder what this looks like on a per capita basis.
@@ -138,7 +140,7 @@ ggplot(energy_royalty_revenue_long %>% drop_na(percapita)) +
         legend.title = element_blank(),
         axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
-    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) # ggplot was clipping the legend
+    guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 
 ```
 

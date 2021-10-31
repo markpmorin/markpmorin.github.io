@@ -1,0 +1,115 @@
+---
+title: Calgary Community Population Change
+author: Mark Morin
+date: '2021-10-30'
+slug: []
+categories: []
+tags: []
+---
+
+In [past](/post/2021-10-26-alberta-median-income-using-cansim-and-tidyverse/) [posts](/post/2021-10-30-calgary-population-change/) I've shown how to pull data from Statistics Canada, and Alberta's open data site - today I'm going to turn to my local government's open data site <https://data.calgary.ca/>. At the same time I'm going to try and map that data. I've never produced a map before and I have no experience with GIS systems so I'm going to try and find something really simple to work with. It likely won't be very interesting.
+
+The developer info link on Calgary's open data site simply points to <https://dev.socrata.com/>. There is an R package for working with this [RSocrata](https://github.com/Chicago/RSocrata) so I'll use that.
+
+```{r setup, warning = FALSE, message = FALSE}
+
+library(tidyverse)
+library(RSocrata)
+library(jsonlite)
+library(sf)
+library(plotly)
+
+```
+
+The ls.socrata function lists all avaialble datasets. Looking at the RSocrata source it looks like there no way to supply search parameters (aside from the repository url).
+
+```{r RSocrata-results}
+search_results <- ls.socrata("https://data.calgary.ca/")
+knitr::kable(head(search_results %>% select(title, landingPage, identifier, theme)))
+```
+
+Oddly enough the results don't contain the [SODA API](https://dev.socrata.com/docs/endpoints.html) endpoint for the dataset. According to the documentation:
+
+"All resources are accessed through a common base path of /resource/ along with their dataset identifier. This paradigm holds true for every dataset in every SODA API. All datasets have a unique identifier - eight alphanumeric characters split into two four-character phrases by a dash."
+
+So for Transit LRT Stations you would use https://data.calgary.ca/resource/2axz-xm4q then append the format to the end <https://data.calgary.ca/resource/2axz-xm4q.csv> or <https://data.calgary.ca/resource/2axz-xm4q.geojson>. Unfortunately RSocrata doesn't support geojson 
+
+```{r show-RSocrata-geojson-error, error = TRUE}
+
+lrt_stations <- read.socrata("https://data.calgary.ca/resource/2axz-xm4q.geojson")
+
+```
+
+I found two ways around this. <https://ajlyons.github.io/sfdata/pres3_socrata-api.html#(3)> has an example of assessing this data using read_sf
+
+```{r read-sf-example}
+
+lrt_stations <- read_sf("https://data.calgary.ca/resource/2axz-xm4q.geojson")
+plot(lrt_stations["leg"])
+
+```
+This works fine as long as the dataset has fewer than 1000 rows. "Parcel Address" is an example of a dataset with many row (well over 300k). RSocrata handles loading this in chunks using [\$limit](ttps://dev.socrata.com/docs/queries/limit.html) and  [\$offset](https://dev.socrata.com/docs/queries/offset.html) to get all the data, but by default read_sf will only return 1000 rows. According to the \$limit documentation "Version 2.1 endpoints have no maximum" and in fact I was able to retrieve the entire parcel dataset using parcels <- read_sf("https://data.calgary.ca/resource/9zvu-p8uz.geojson?$limit=1000000") 
+
+If your Socrata site doesn't allow this and you still needed to use RSocrata to read the entire dataset, according to  <https://angela-li.github.io/handsonspatialdata/spatial-data-handling.html> it looks like converting to spatial data with st_as_sf is probably the way to go.
+
+Given that fact that retrieving large datasets isn't an issue for my city, I won't be using RSocrata in my interactions with it. ls.socrata can be replaced with
+
+```{r fromJSON-ls-replacement}
+search_results <- fromJSON("https://data.calgary.ca/data.json")$dataset
+```
+
+I'm going to try and build a choropleth showing community population decline relative to it's maximum population. First let's get the community boundaries data, and community population history. It would be interesting to marry this information up with school attendance, and perhaps some measures of what sorts of ammenities these communities have available to them.
+
+```{r build-choropleth}
+
+# fetch data from city of calgary
+boundaries <- read_sf("https://data.calgary.ca/resource/surr-xmvs.geojson")
+community_populations <- fromJSON("https://data.calgary.ca/resource/jtpc-xgsh.json?$limit=100000")
+
+# fix up data types
+community_populations$census_year <- as.POSIXct(community_populations$census_year)
+community_populations$population <- as.numeric(community_populations$population)
+
+# generate separate datasets for max populations, and current_populations
+max_populations <- community_populations %>% group_by(name) %>% filter(population == max(population)) %>% filter(population != 0)
+current_populations <- community_populations %>% group_by(name) %>% filter(census_year == max(census_year))
+
+# merge all this data together to calculate a fraction of the max population for each community
+# along with the necessary spatial data
+current_max_population_fraction <- boundaries %>% 
+                                left_join(current_populations, by ="name") %>% 
+                                rename(current_population = population,
+                                       current_census_year = census_year) %>%
+                                left_join(max_populations, by = "name") %>%
+                                rename(max_population = population,
+                                       max_census_year = census_year) %>%
+                                select(name, current_population, max_population, max_census_year) %>% 
+                                mutate(fraction =  current_population/max_population)
+
+ggplot(current_max_population_fraction) +
+  geom_sf(aes(geometry = geometry, # we don't need this because our geometry column is named geometry and/or there is only a single geometry column 
+              fill = fraction)) + 
+  coord_sf() +
+  theme_void()
+```
+
+It would be great if you could see details when you hover over a particular community - what's the name of that community? exactly what fraction of their maximum population are they at? It looks like there are a quite a few packages that could help us do that. I've randomly chosen plotly for my first attempt.
+
+```{r plotly, warning = FALSE}
+
+plot <- ggplot(current_max_population_fraction) +
+  geom_sf(aes(geometry = geometry, 
+              fill = fraction, 
+              text = paste(
+        "Community", name,
+        "\nFraction", fraction,
+        "\nMax Census Year", max_census_year))) + 
+  coord_sf() +
+  theme_void()
+
+ggplotly(plot, tooltip = "text")
+```
+
+That works OK, but the hover seems a little bit flaky. Maybe I haven't set something up quite right, or maybe one of the other options is a better choice.
+
+I look back on this post and it's remarkable just how little code there is. I read a ton of material on GIS, and coordinate systems - and my initial attempts with RSocrata retrieved non-spatial datasets, so I spent a bunch of time trying to figure out how to convert those columns to spatial data types. In the end retrieving the data and plotting it was very simple - most of the code is mashing up the data - which is probably where it should be.

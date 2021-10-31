@@ -58,16 +58,8 @@ knitr::kable(energy_royalty_revenue)
 The wide format isn't what R expects when charting so I need to un-pivot this
 
 ```{r}
-energy_royalty_revenue_long <- energy_royalty_revenue %>% 
-  pivot_longer(names_to = "fiscalyear", values_to = "value", cols = matches("\\d\\d\\d\\d\\/\\d\\d"), values_drop_na = TRUE)
-
-knitr::kable(head(energy_royalty_revenue_long))
-```
-
-The values come through as text. I'm going to guess that it looks at the first few rows to figure out the data type for each column, and since it finds column header names, it goes with text. I'll have to give that a try wiht a sane spreadsheet structure.
-
-```{r}
-energy_royalty_revenue_long$value <- as.numeric(energy_royalty_revenue_long$value)
+energy_royalty_revenue_long <- energy_royalty_revenue %>% gather("fiscalyear", "value", -source) %>%
+  filter(!is.na(value))
 
 knitr::kable(head(energy_royalty_revenue_long))
 ```
@@ -77,13 +69,13 @@ And finally we can build our chart
 ```{r}
 ggplot(energy_royalty_revenue_long) + 
   geom_col(aes(x = fiscalyear, y = value, fill = source)) +
-  ylab("$ Millions") +
   labs(title = "Alberta Energy Royalty Revenue", 
-       caption = "Source : Government of Alberta") +
+       caption = "Source : Government of Alberta",
+       x = NULL,
+       y = "$ Millions") +
   theme_bw() +
   theme(legend.position = "top",
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
   guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 
@@ -105,14 +97,14 @@ energy_royalty_revenue_long$value2019 <- energy_royalty_revenue_long$value * cpi
 
 ggplot(energy_royalty_revenue_long) + 
   geom_col(aes(x = fiscalyear, y = value2019, fill = source)) +
-  ylab("$ Millions") +
   labs(title = "Alberta Energy Royalty Revenue", 
        subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars).",
-       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01") +
+       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01",
+       x = NULL,
+       y = "$ Millions") +
   theme_bw() +
   theme(legend.position = "top",
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
     guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 
@@ -131,14 +123,14 @@ energy_royalty_revenue_long$percapita <- energy_royalty_revenue_long$value2019 *
 
 ggplot(energy_royalty_revenue_long %>% drop_na(percapita)) + 
   geom_col(aes(x = fiscalyear, y = percapita, fill = source)) +
-  ylab("$") +
   labs(title = "Alberta Energy Per Capita Royalty Revenue", 
        subtitle = "Figures reported in inflation-adjusted (constant 2019) dollars).",
-       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01") +
+       caption = "Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01",
+       x = NULL,
+       y = "$") +
   theme_bw() +
   theme(legend.position = "top",
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
     guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend
 

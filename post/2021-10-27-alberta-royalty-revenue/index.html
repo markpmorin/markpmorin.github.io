@@ -99,8 +99,8 @@
   "keywords": [
     
   ],
-  "articleBody": "  My previous post left me wondering just how crazy the oil and gas business was in Alberta during those years where median diverged from the rest of Canada. My own recollection is that after oil prices collapsed in the early 1980s, that gas made the biggest contribution to Alberta oil and gas business until the late 2000s when gas prices collapsed due to shale gas coming online, while at the same time all those enormous oilsands projects started coming online.\nAlberta has an open data site. I’ll see what I can find there.\nDeveloper documentation is at https://open.alberta.ca/interact/for-developers and uses something called CKAN the Comprehensive Knowledge Archive Network for its API. It simple enough that you could probably just access this using http, but there is a ckanr package available so I’ll use that. Reading the documentation it’s probably really useful if you’re using it to write data or any of the other advanced functionality.\nlibrary(tidyverse) library(readxl) library(ckanr) library(cansim) I decided to try and look at oil and gas royalties - it’s not perfect and you can certainly ask questions as to whether or not royalties were set at an appropriate level at any point in time, but it should give some idea about how the industry was doing. I was very quickly able to find what I was looking for using the Open Data Portal just by searching on “royalty” https://open.alberta.ca/opendata?q=royalty\u0026sort=score+desc. The data I’m looking for was in the first of nine results returned.\nMy first attempt to do this using the API with package_search was https://open.alberta.ca/api/action/package_search?q=royalty but this returns 221 results and despite the length, it doesn’t include the result I’m looking for. The CKAN documentation doesn’t have any information about it’s search syntax, but I was eventually able to figure out that it uses Solr which gave me some insight into it’s search syntax.\nI fiddled around with this for awhile, trying to search by specific fields, and making sure I was doing case insensitive searches, but there’s clearly a lot about this I don’t understand. I was eventually able to craft a query https://open.alberta.ca/api/action/package_search?q=name:*historical*royalty*\u0026sort=score+desc that returned the data I was interested in, but only because I already knew the name of the resource I was looking for.\nIn order to retrieve the package I think I need to use package_show which takes an id parameter.Looking at the results from my previous search, I can see the package_id is 382b7a1e-9c34-47c7-9531-38e67ca5441d. And passing this to package_show works https://open.alberta.ca/api/action/package_show?id=382b7a1e-9c34-47c7-9531-38e67ca5441d. This doesn’t smell right and looking at the result of https://open.alberta.ca/api/action/package_list this id isn’t even in the list, however historical-royalty-revenue is and https://open.alberta.ca/api/action/package_show?id=historical-royalty-revenue works. I’m not sure what to make of that. “historical-royalty-revenue” is the name of the package - perhaps package_list lists the names, not the package_id (which seems very reasonable). And perhaps package_show’s id parameter is really id_or_name?\nLet’s see how this looks in R.\nckanr_setup(url = \"http://open.alberta.ca/\") result  ## 382b7a1e-9c34-47c7-9531-38e67ca5441d ## Title: Historical Royalty Revenue ## Creator/Modified: 2015-05-13T19:27:03.598305 / 2021-01-04T23:19:13.123033 ## Resources (up to 5): 2020 Historic royalty summary revenue workbook, 2019 Historical royalty summary revenue workbook, 2018 Historical royalty summary Revenue workbook, Historical Royalty Revenue ## Tags (up to 5): conventional oil, framework, historical, natural, natural gas ## Groups (up to 5): The various files associated with this package show up as a list or resources. I want the url from the most recent one. I assume they’re always list these newest first? Unfortunately the file we’re retrieving is designed more for people than computers, so this isn’t just a table in a spreadsheet. I’m being very picky about the range I’m bringing in. Again, this is really a manual process in terms of figuring out where the data is, and where the column names are.\nurl     source 1970/71 1971/72 1972/73 1973/74 1974/75 1975/76 1976/77 1977/78 1978/79 1979/80 1980/81 1981/82 1982/83 1983/84 1984/85 1985/86 1986/87 1987/88 1988/89 1989/90 1990/91 1991/92 1992/93 1993/94 1994/95 1995/96 1996/97 1997/98 1998/99 1999/00 2000/01 2001/02 2002/03 2003/04 2004/05 2005/06 2006/07 2007/08 2008/09 2009/10 2010/11 2011/12 2012/13 2013/14 2014/15 2015/16 2016/17 2017/18 2018/19 2019/20    NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA  Natural Gas \u0026 By-product Royalty 143.718055 174.637712 42.259 70.035 231.493 519.136 721.707 980.781 1196.153 1509.891 1903.0454 1956.2936 1876.3623 1694.0913 1942.4133 1805.9356 1097.180 1011.171 988.7056 960.5860 1080.000 839.3 1069 1410 1242 1004 1299 1660 1467 2441 7200 4030 5125 5450 6439 8388 5987.697 5199 5834.006 1525 1416 1304 954 1103 989 493 520 645 535.925 371.000  Conventional Oil Royalty NA NA 172.333 302.123 956.437 975.441 1094.257 1323.226 1617.901 1899.885 1969.0618 2177.9831 2337.8867 2872.9135 2916.4701 2533.6732 996.710 1330.212 933.4114 1125.9670 1325.194 1037.6 1009 767 1097 1047 1386 914 470 1072 1500 987 1177 981 1273 1463 1399.759 1655 1800.120 1848 2236 2284 2038 2476 2245 689 724 965 1149.125 1174.553  Oil Sands Royalty 2.445851 3.003132 3.819 8.177 13.869 15.378 19.095 23.826 27.816 46.247 224.9220 229.7140 362.3400 303.8300 135.0580 220.8680 11.960 22.641 18.9802 27.7201 39.000 30.6 65 66 223 312 512 192 59 426 712 185 183 197 718 950 2411.430 2913 2973.132 3160 3723 4513 3560 5222 5049 1223 1483 2643 3213.729 4088.981  Coal Royalty 0.487636 0.662917 0.660 0.676 0.710 1.132 7.135 15.585 18.622 8.047 8.0000 11.0000 14.0000 11.0000 9.0000 11.0000 7.000 8.000 15.0000 17.0000 15.000 26.0 16 14 14 22 18 18 17 15 12 17 10 9 11 11 12.681 14 35.770 31 31 29 -3 16 16 14 26 12 9.803 12.785  Bonuses \u0026 Sales of Crown Leases 84.813856 92.416248 61.085 81.707 80.911 141.001 207.839 736.147 677.514 1057.732 758.8380 556.9140 336.5000 486.9810 662.1330 724.4180 291.948 761.181 449.5412 388.5000 415.682 262.0 167 717 978 576 927 1071 463 743 1159 969 565 967 1252 3490 2462.787 1128 1112.403 1165 2635 3312 1053 588 476 203 203 564 360.467 119.832  Rentals \u0026 Fees 1.405821 2.057209 51.381 56.773 58.449 61.394 66.040 73.780 78.364 70.764 93.0000 103.0000 102.0000 92.0000 88.0000 91.0000 81.000 77.000 77.0000 76.0000 98.000 105.0 103 105 115 116 132 148 142 141 147 148 153 154 153 156 159.319 159 159.865 158 161 169 176 173 173 167 148 153 159.961 169.189  Special Royalty Features NA NA NA -10.128 -15.251 -33.361 -49.243 -75.160 -81.390 -98.782 -148.4761 -156.2046 -863.2441 -443.5931 -565.4887 -534.9522 -400.297 -273.000 3.0000 0.0000 0.000 0.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.000 0 0.000 -1119 -1774 25 0 0 0 0 0 0 0.000 0.000  ARTC NA NA NA NA NA -8.000 -76.000 -53.000 -113.000 -108.000 -115.2850 -132.0000 -728.0000 -607.4390 -395.8680 -410.7790 -425.126 -383.000 -344.0000 -355.4140 -285.569 -277.5 -246 -262 -291 -292 -240 -225 -250 -188 -144 -109 -83 -82 -102 -111 -173.793 -44 0.000 0 0 0 0 0 0 0 0 0 0.000 0.000  NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA    The wide format isn’t what R expects when charting so I need to un-pivot this\nenergy_royalty_revenue_long % pivot_longer(names_to = \"fiscalyear\", values_to = \"value\", cols = matches(\"\\\\d\\\\d\\\\d\\\\d\\\\/\\\\d\\\\d\"), values_drop_na = TRUE) knitr::kable(head(energy_royalty_revenue_long))   source fiscalyear value    Natural Gas \u0026 By-product Royalty 1970/71 143.7181  Natural Gas \u0026 By-product Royalty 1971/72 174.6377  Natural Gas \u0026 By-product Royalty 1972/73 42.2590  Natural Gas \u0026 By-product Royalty 1973/74 70.0350  Natural Gas \u0026 By-product Royalty 1974/75 231.4930  Natural Gas \u0026 By-product Royalty 1975/76 519.1360    The values come through as text. I’m going to guess that it looks at the first few rows to figure out the data type for each column, and since it finds column header names, it goes with text. I’ll have to give that a try wiht a sane spreadsheet structure.\nenergy_royalty_revenue_long$value    source fiscalyear value    Natural Gas \u0026 By-product Royalty 1970/71 143.7181  Natural Gas \u0026 By-product Royalty 1971/72 174.6377  Natural Gas \u0026 By-product Royalty 1972/73 42.2590  Natural Gas \u0026 By-product Royalty 1973/74 70.0350  Natural Gas \u0026 By-product Royalty 1974/75 231.4930  Natural Gas \u0026 By-product Royalty 1975/76 519.1360    And finally we can build our chart\nggplot(energy_royalty_revenue_long) + geom_col(aes(x = fiscalyear, y = value, fill = source)) + ylab(\"$ Millions\") + labs(title = \"Alberta Energy Royalty Revenue\", caption = \"Source : Government of Alberta\") + theme_bw() + theme(legend.position = \"top\", legend.title = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 60, hjust=1)) + guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend I need to spend some time figuring out how to tell R to use different colours. I wonder if these are 2020 dollars, or actual dollars in the year they were reporting? Looking at page 30 of https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf, although not exact match to the numbers we see here, it’s pretty clear they’re not adjusted to current dollars.\nI believe using the cpi is how to do this, but again you shouldn’t trust this.\nsuppressMessages( cpi % filter(GEO == \"Canada\", `Products and product groups` == \"All-items\", UOM == \"2002=100\") cpicanada$conversion  Royalty income in the late 70s/early 80s were enormous. Keep in mind that Alberta’s population would have been significantly smaller then. I wonder what this looks like on a per capita basis.\nsuppressMessages( population_estimates % filter(GEO == \"Alberta\", UOM == \"Persons\", `Age group` == \"All ages\", Sex == \"Both sexes\") ) energy_royalty_revenue_long$percapita % drop_na(percapita)) + geom_col(aes(x = fiscalyear, y = percapita, fill = source)) + ylab(\"$\") + labs(title = \"Alberta Energy Per Capita Royalty Revenue\", subtitle = \"Figures reported in inflation-adjusted (constant 2019) dollars).\", caption = \"Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01\") + theme_bw() + theme(legend.position = \"top\", legend.title = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 60, hjust=1)) + guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend For the Alberta Open Government license see https://open.alberta.ca/licence\n",
-  "wordCount" : "1859",
+  "articleBody": "  My previous post left me wondering just how crazy the oil and gas business was in Alberta during those years where median diverged from the rest of Canada. My own recollection is that after oil prices collapsed in the early 1980s, that gas made the biggest contribution to Alberta oil and gas business until the late 2000s when gas prices collapsed due to shale gas coming online, while at the same time all those enormous oilsands projects started coming online.\nAlberta has an open data site. I’ll see what I can find there.\nDeveloper documentation is at https://open.alberta.ca/interact/for-developers and uses something called CKAN the Comprehensive Knowledge Archive Network for its API. It simple enough that you could probably just access this using http, but there is a ckanr package available so I’ll use that. Reading the documentation it’s probably really useful if you’re using it to write data or any of the other advanced functionality.\nlibrary(tidyverse) library(readxl) library(ckanr) library(cansim) I decided to try and look at oil and gas royalties - it’s not perfect and you can certainly ask questions as to whether or not royalties were set at an appropriate level at any point in time, but it should give some idea about how the industry was doing. I was very quickly able to find what I was looking for using the Open Data Portal just by searching on “royalty” https://open.alberta.ca/opendata?q=royalty\u0026sort=score+desc. The data I’m looking for was in the first of nine results returned.\nMy first attempt to do this using the API with package_search was https://open.alberta.ca/api/action/package_search?q=royalty but this returns 221 results and despite the length, it doesn’t include the result I’m looking for. The CKAN documentation doesn’t have any information about it’s search syntax, but I was eventually able to figure out that it uses Solr which gave me some insight into it’s search syntax.\nI fiddled around with this for awhile, trying to search by specific fields, and making sure I was doing case insensitive searches, but there’s clearly a lot about this I don’t understand. I was eventually able to craft a query https://open.alberta.ca/api/action/package_search?q=name:*historical*royalty*\u0026sort=score+desc that returned the data I was interested in, but only because I already knew the name of the resource I was looking for.\nIn order to retrieve the package I think I need to use package_show which takes an id parameter.Looking at the results from my previous search, I can see the package_id is 382b7a1e-9c34-47c7-9531-38e67ca5441d. And passing this to package_show works https://open.alberta.ca/api/action/package_show?id=382b7a1e-9c34-47c7-9531-38e67ca5441d. This doesn’t smell right and looking at the result of https://open.alberta.ca/api/action/package_list this id isn’t even in the list, however historical-royalty-revenue is and https://open.alberta.ca/api/action/package_show?id=historical-royalty-revenue works. I’m not sure what to make of that. “historical-royalty-revenue” is the name of the package - perhaps package_list lists the names, not the package_id (which seems very reasonable). And perhaps package_show’s id parameter is really id_or_name?\nLet’s see how this looks in R.\nckanr_setup(url = \"http://open.alberta.ca/\") result  ## 382b7a1e-9c34-47c7-9531-38e67ca5441d ## Title: Historical Royalty Revenue ## Creator/Modified: 2015-05-13T19:27:03.598305 / 2021-01-04T23:19:13.123033 ## Resources (up to 5): 2020 Historic royalty summary revenue workbook, 2019 Historical royalty summary revenue workbook, 2018 Historical royalty summary Revenue workbook, Historical Royalty Revenue ## Tags (up to 5): conventional oil, framework, historical, natural, natural gas ## Groups (up to 5): The various files associated with this package show up as a list or resources. I want the url from the most recent one. I assume they’re always list these newest first? Unfortunately the file we’re retrieving is designed more for people than computers, so this isn’t just a table in a spreadsheet. I’m being very picky about the range I’m bringing in. Again, this is really a manual process in terms of figuring out where the data is, and where the column names are.\nurl     source 1970/71 1971/72 1972/73 1973/74 1974/75 1975/76 1976/77 1977/78 1978/79 1979/80 1980/81 1981/82 1982/83 1983/84 1984/85 1985/86 1986/87 1987/88 1988/89 1989/90 1990/91 1991/92 1992/93 1993/94 1994/95 1995/96 1996/97 1997/98 1998/99 1999/00 2000/01 2001/02 2002/03 2003/04 2004/05 2005/06 2006/07 2007/08 2008/09 2009/10 2010/11 2011/12 2012/13 2013/14 2014/15 2015/16 2016/17 2017/18 2018/19 2019/20    NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA  Natural Gas \u0026 By-product Royalty 143.718055 174.637712 42.259 70.035 231.493 519.136 721.707 980.781 1196.153 1509.891 1903.0454 1956.2936 1876.3623 1694.0913 1942.4133 1805.9356 1097.180 1011.171 988.7056 960.5860 1080.000 839.3 1069 1410 1242 1004 1299 1660 1467 2441 7200 4030 5125 5450 6439 8388 5987.697 5199 5834.006 1525 1416 1304 954 1103 989 493 520 645 535.925 371.000  Conventional Oil Royalty NA NA 172.333 302.123 956.437 975.441 1094.257 1323.226 1617.901 1899.885 1969.0618 2177.9831 2337.8867 2872.9135 2916.4701 2533.6732 996.710 1330.212 933.4114 1125.9670 1325.194 1037.6 1009 767 1097 1047 1386 914 470 1072 1500 987 1177 981 1273 1463 1399.759 1655 1800.120 1848 2236 2284 2038 2476 2245 689 724 965 1149.125 1174.553  Oil Sands Royalty 2.445851 3.003132 3.819 8.177 13.869 15.378 19.095 23.826 27.816 46.247 224.9220 229.7140 362.3400 303.8300 135.0580 220.8680 11.960 22.641 18.9802 27.7201 39.000 30.6 65 66 223 312 512 192 59 426 712 185 183 197 718 950 2411.430 2913 2973.132 3160 3723 4513 3560 5222 5049 1223 1483 2643 3213.729 4088.981  Coal Royalty 0.487636 0.662917 0.660 0.676 0.710 1.132 7.135 15.585 18.622 8.047 8.0000 11.0000 14.0000 11.0000 9.0000 11.0000 7.000 8.000 15.0000 17.0000 15.000 26.0 16 14 14 22 18 18 17 15 12 17 10 9 11 11 12.681 14 35.770 31 31 29 -3 16 16 14 26 12 9.803 12.785  Bonuses \u0026 Sales of Crown Leases 84.813856 92.416248 61.085 81.707 80.911 141.001 207.839 736.147 677.514 1057.732 758.8380 556.9140 336.5000 486.9810 662.1330 724.4180 291.948 761.181 449.5412 388.5000 415.682 262.0 167 717 978 576 927 1071 463 743 1159 969 565 967 1252 3490 2462.787 1128 1112.403 1165 2635 3312 1053 588 476 203 203 564 360.467 119.832  Rentals \u0026 Fees 1.405821 2.057209 51.381 56.773 58.449 61.394 66.040 73.780 78.364 70.764 93.0000 103.0000 102.0000 92.0000 88.0000 91.0000 81.000 77.000 77.0000 76.0000 98.000 105.0 103 105 115 116 132 148 142 141 147 148 153 154 153 156 159.319 159 159.865 158 161 169 176 173 173 167 148 153 159.961 169.189  Special Royalty Features NA NA NA -10.128 -15.251 -33.361 -49.243 -75.160 -81.390 -98.782 -148.4761 -156.2046 -863.2441 -443.5931 -565.4887 -534.9522 -400.297 -273.000 3.0000 0.0000 0.000 0.0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.000 0 0.000 -1119 -1774 25 0 0 0 0 0 0 0.000 0.000  ARTC NA NA NA NA NA -8.000 -76.000 -53.000 -113.000 -108.000 -115.2850 -132.0000 -728.0000 -607.4390 -395.8680 -410.7790 -425.126 -383.000 -344.0000 -355.4140 -285.569 -277.5 -246 -262 -291 -292 -240 -225 -250 -188 -144 -109 -83 -82 -102 -111 -173.793 -44 0.000 0 0 0 0 0 0 0 0 0 0.000 0.000  NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA    The wide format isn’t what R expects when charting so I need to un-pivot this\nenergy_royalty_revenue_long % gather(\"fiscalyear\", \"value\", -source) %% filter(!is.na(value)) knitr::kable(head(energy_royalty_revenue_long))   source fiscalyear value    Natural Gas \u0026 By-product Royalty 1970/71 143.718055  Oil Sands Royalty 1970/71 2.445851  Coal Royalty 1970/71 0.487636  Bonuses \u0026 Sales of Crown Leases 1970/71 84.813856  Rentals \u0026 Fees 1970/71 1.405821  Natural Gas \u0026 By-product Royalty 1971/72 174.637712    And finally we can build our chart\nggplot(energy_royalty_revenue_long) + geom_col(aes(x = fiscalyear, y = value, fill = source)) + labs(title = \"Alberta Energy Royalty Revenue\", caption = \"Source : Government of Alberta\", x = NULL, y = \"$ Millions\") + theme_bw() + theme(legend.position = \"top\", legend.title = element_blank(), axis.text.x = element_text(angle = 60, hjust=1)) + guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend I need to spend some time figuring out how to tell R to use different colours. I wonder if these are 2020 dollars, or actual dollars in the year they were reporting? Looking at page 30 of https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf, although not exact match to the numbers we see here, it’s pretty clear they’re not adjusted to current dollars.\nI believe using the cpi is how to do this, but again you shouldn’t trust this.\nsuppressMessages( cpi % filter(GEO == \"Canada\", `Products and product groups` == \"All-items\", UOM == \"2002=100\") cpicanada$conversion  Royalty income in the late 70s/early 80s were enormous. Keep in mind that Alberta’s population would have been significantly smaller then. I wonder what this looks like on a per capita basis.\nsuppressMessages( population_estimates % filter(GEO == \"Alberta\", UOM == \"Persons\", `Age group` == \"All ages\", Sex == \"Both sexes\") ) energy_royalty_revenue_long$percapita % drop_na(percapita)) + geom_col(aes(x = fiscalyear, y = percapita, fill = source)) + labs(title = \"Alberta Energy Per Capita Royalty Revenue\", subtitle = \"Figures reported in inflation-adjusted (constant 2019) dollars).\", caption = \"Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01\", x = NULL, y = \"$\") + theme_bw() + theme(legend.position = \"top\", legend.title = element_blank(), axis.text.x = element_text(angle = 60, hjust=1)) + guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend For the Alberta Open Government license see https://open.alberta.ca/licence\n",
+  "wordCount" : "1750",
   "inLanguage": "en",
   "datePublished": "2021-10-27T00:00:00Z",
   "dateModified": "2021-10-27T00:00:00Z",
@@ -864,8 +864,8 @@ knitr::kable(energy_royalty_revenue)</code></pre>
 </tbody>
 </table>
 <p>The wide format isn’t what R expects when charting so I need to un-pivot this</p>
-<pre class="r"><code>energy_royalty_revenue_long &lt;- energy_royalty_revenue %&gt;% 
-  pivot_longer(names_to = &quot;fiscalyear&quot;, values_to = &quot;value&quot;, cols = matches(&quot;\\d\\d\\d\\d\\/\\d\\d&quot;), values_drop_na = TRUE)
+<pre class="r"><code>energy_royalty_revenue_long &lt;- energy_royalty_revenue %&gt;% gather(&quot;fiscalyear&quot;, &quot;value&quot;, -source) %&gt;%
+  filter(!is.na(value))
 
 knitr::kable(head(energy_royalty_revenue_long))</code></pre>
 <table>
@@ -880,93 +880,48 @@ knitr::kable(head(energy_royalty_revenue_long))</code></pre>
 <tr class="odd">
 <td align="left">Natural Gas &amp; By-product Royalty</td>
 <td align="left">1970/71</td>
-<td align="right">143.7181</td>
+<td align="right">143.718055</td>
 </tr>
 <tr class="even">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1971/72</td>
-<td align="right">174.6377</td>
-</tr>
-<tr class="odd">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1972/73</td>
-<td align="right">42.2590</td>
-</tr>
-<tr class="even">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1973/74</td>
-<td align="right">70.0350</td>
-</tr>
-<tr class="odd">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1974/75</td>
-<td align="right">231.4930</td>
-</tr>
-<tr class="even">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1975/76</td>
-<td align="right">519.1360</td>
-</tr>
-</tbody>
-</table>
-<p>The values come through as text. I’m going to guess that it looks at the first few rows to figure out the data type for each column, and since it finds column header names, it goes with text. I’ll have to give that a try wiht a sane spreadsheet structure.</p>
-<pre class="r"><code>energy_royalty_revenue_long$value &lt;- as.numeric(energy_royalty_revenue_long$value)
-
-knitr::kable(head(energy_royalty_revenue_long))</code></pre>
-<table>
-<thead>
-<tr class="header">
-<th align="left">source</th>
-<th align="left">fiscalyear</th>
-<th align="right">value</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
+<td align="left">Oil Sands Royalty</td>
 <td align="left">1970/71</td>
-<td align="right">143.7181</td>
+<td align="right">2.445851</td>
+</tr>
+<tr class="odd">
+<td align="left">Coal Royalty</td>
+<td align="left">1970/71</td>
+<td align="right">0.487636</td>
+</tr>
+<tr class="even">
+<td align="left">Bonuses &amp; Sales of Crown Leases</td>
+<td align="left">1970/71</td>
+<td align="right">84.813856</td>
+</tr>
+<tr class="odd">
+<td align="left">Rentals &amp; Fees</td>
+<td align="left">1970/71</td>
+<td align="right">1.405821</td>
 </tr>
 <tr class="even">
 <td align="left">Natural Gas &amp; By-product Royalty</td>
 <td align="left">1971/72</td>
-<td align="right">174.6377</td>
-</tr>
-<tr class="odd">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1972/73</td>
-<td align="right">42.2590</td>
-</tr>
-<tr class="even">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1973/74</td>
-<td align="right">70.0350</td>
-</tr>
-<tr class="odd">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1974/75</td>
-<td align="right">231.4930</td>
-</tr>
-<tr class="even">
-<td align="left">Natural Gas &amp; By-product Royalty</td>
-<td align="left">1975/76</td>
-<td align="right">519.1360</td>
+<td align="right">174.637712</td>
 </tr>
 </tbody>
 </table>
 <p>And finally we can build our chart</p>
 <pre class="r"><code>ggplot(energy_royalty_revenue_long) + 
   geom_col(aes(x = fiscalyear, y = value, fill = source)) +
-  ylab(&quot;$ Millions&quot;) +
   labs(title = &quot;Alberta Energy Royalty Revenue&quot;, 
-       caption = &quot;Source : Government of Alberta&quot;) +
+       caption = &quot;Source : Government of Alberta&quot;,
+       x = NULL,
+       y = &quot;$ Millions&quot;) +
   theme_bw() +
   theme(legend.position = &quot;top&quot;,
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
   guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend</code></pre>
-<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-5-1.png" width="672" />
+<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-4-1.png" width="672" />
 I need to spend some time figuring out how to tell R to use different colours. I wonder if these are 2020 dollars, or actual dollars in the year they were reporting? Looking at page 30 of <a href="https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf" class="uri">https://open.alberta.ca/dataset/c9f37512-2888-4c40-bcb7-a98abc4387e2/resource/1e1ae7a7-c8fa-4402-8cad-6953c499c303/download/ar1999.pdf</a>, although not exact match to the numbers we see here, it’s pretty clear they’re not adjusted to current dollars.</p>
 <p>I believe using the cpi is how to do this, but again you shouldn’t trust this.</p>
 <pre class="r"><code>suppressMessages(
@@ -982,17 +937,17 @@ energy_royalty_revenue_long$value2019 &lt;- energy_royalty_revenue_long$value * 
 
 ggplot(energy_royalty_revenue_long) + 
   geom_col(aes(x = fiscalyear, y = value2019, fill = source)) +
-  ylab(&quot;$ Millions&quot;) +
   labs(title = &quot;Alberta Energy Royalty Revenue&quot;, 
        subtitle = &quot;Figures reported in inflation-adjusted (constant 2019) dollars).&quot;,
-       caption = &quot;Source : Government of Alberta, StatCan Table:18-10-0005-01&quot;) +
+       caption = &quot;Source : Government of Alberta, StatCan Table:18-10-0005-01&quot;,
+       x = NULL,
+       y = &quot;$ Millions&quot;) +
   theme_bw() +
   theme(legend.position = &quot;top&quot;,
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
     guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend</code></pre>
-<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-6-1.png" width="672" />
+<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-5-1.png" width="672" />
 Royalty income in the late 70s/early 80s were enormous. Keep in mind that Alberta’s population would have been significantly smaller then. I wonder what this looks like on a per capita basis.</p>
 <pre class="r"><code>suppressMessages(
   population_estimates &lt;- get_cansim(&quot;17-10-0005&quot;) %&gt;% filter(GEO == &quot;Alberta&quot;, 
@@ -1005,17 +960,17 @@ energy_royalty_revenue_long$percapita &lt;- energy_royalty_revenue_long$value201
 
 ggplot(energy_royalty_revenue_long %&gt;% drop_na(percapita)) + 
   geom_col(aes(x = fiscalyear, y = percapita, fill = source)) +
-  ylab(&quot;$&quot;) +
   labs(title = &quot;Alberta Energy Per Capita Royalty Revenue&quot;, 
        subtitle = &quot;Figures reported in inflation-adjusted (constant 2019) dollars).&quot;,
-       caption = &quot;Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01&quot;) +
+       caption = &quot;Source : Government of Alberta, StatCan Table:18-10-0005-01, 17-10-0005-01&quot;,
+       x = NULL,
+       y = &quot;$&quot;) +
   theme_bw() +
   theme(legend.position = &quot;top&quot;,
         legend.title = element_blank(),
-        axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust=1)) +
     guides(fill = guide_legend(nrow = 3, byrow = TRUE)) # ggplot was clipping the legend</code></pre>
-<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p><img src="http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
 <p>For the Alberta Open Government license see <a href="https://open.alberta.ca/licence" class="uri">https://open.alberta.ca/licence</a></p>
 
 

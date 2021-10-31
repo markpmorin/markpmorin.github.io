@@ -6,7 +6,16 @@
     <description>Recent content on Mark&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 27 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 30 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Calgary Community Population Change</title>
+      <link>http://markpmorin.github.io/post/2021-10-30-calgary-community-population-change/</link>
+      <pubDate>Sat, 30 Oct 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://markpmorin.github.io/post/2021-10-30-calgary-community-population-change/</guid>
+      <description>In past posts I’ve shown how to pull data from Statistics Canada, and Alberta’s open data site - today I’m going to turn to my local government’s open data site https://data.calgary.ca/. At the same time I’m going to try and map that data. I’ve never produced a map before and I have no experience with GIS systems so I’m going to try and find something really simple to work with.</description>
+    </item>
+    
     <item>
       <title>Alberta Royalty Revenue</title>
       <link>http://markpmorin.github.io/post/2021-10-27-alberta-royalty-revenue/</link>

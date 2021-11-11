@@ -1,0 +1,152 @@
+---
+title: Working with Statistics Canada Census Data in R
+author: R package build
+date: '2021-11-07'
+slug: []
+categories: []
+tags: []
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(jsonlite)
+library(sf)
+```
+
+In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use [Cancensus](https://mountainmath.github.io/cancensus/index.html) but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.
+
+There are a couple of guides to their web services available. The [2016 Census Profile Web Data Service User Guide](https://www12.statcan.gc.ca/wds-sdw/cpr2016-eng.cfm) and the [2016 Census geographies Web Data Service](https://www12.statcan.gc.ca/wds-sdw/cr2016geo-eng.cfm). The idea seems to be that you can retrieve geography identifiers with the "geographies" web service, available at a variety of different levels of detail, and then use the "data service" to retrieve the actual data. Neither of these seems to tell you what the GEO_ID refers to. It looks like these [boundary files](https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/bound-limit-2016-eng.cfm/) are where the geographic areas are defined. Let's see what exactly is in these files and how we can match them up to the GEO_IDs. I've downloaded the provinces and territories boundary file, and unzipped it to the same directory as this post.
+
+```{r message=FALSE}
+
+provinces_geo <- st_read("lpr_000b16a_e.shp")
+provinces_geo <- st_simplify(provinces_geo, preserveTopology = FALSE, dTolerance = 1000)
+
+knitr::kable(provinces_geo)
+```
+
+Note the call to st_simplify. The geometries returned are very detailed and printing or viewing the data frame takes a long time. For our purposes we don't need that level of detail.
+
+Surprisingly to me there isn't a GEO_ID in that file, so let's retrieve some provincial level information and see what we would be returned and how we could match those up. The following should retrieve the geographies services result for provinces (geos=PR and cpt=00 for all of Canada) <https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&geos=PR&cpt=00> so there are province codes and the associated GEO_ID which would allow you call the data service. For example, Alberta's GEO_ID is 2016A000248. So if you wanted to get the population (topic 13) for Alberta you'd call <https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&dguid=2016A000248&topic=13&notes=0&stat=0>.
+
+That's fine at the province level, but we're trying to get lower level information for our population change question. The lowest level is dissemination area (or maybe blocks, but most data isn't available at this level?). There is a boundaries file for this and we can load that in the same way as we did the province shape file. 
+
+```{r message=FALSE}
+dissemination_area_geo <- st_read("lda_000b16a_e.shp")
+calgary_dissemination_area_geo <- dissemination_area_geo %>% filter(CMANAME == "Calgary")
+knitr::kable(head(calgary_dissemination_area_geo))
+```
+
+The geographies service call for the dissemination area (DA) level (for Alberta only cpt=48 this time to limit the amount of data) is <https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&geos=DA&cpt=48>
+So the strategy would seem to be, use the boundary file to find the appropriate DAUID, then find that GEO_ID_CODE in the geographies service call, and use the GEO_UID from that in the call to the data service to retrieve the actual data you're interested in. For DAUID 48060566 in the geographies service call, we see:
+
+```javascript
+
+{
+  "COLUMNS": [
+    "GEO_UID",
+    "PROV_TERR_ID_CODE",
+    "PROV_TERR_NAME_NOM",
+    "GEO_ID_CODE",
+    "GEO_NAME_NOM",
+    "GEO_TYPE",
+    "GEO_GNR_SF",
+    "GEO_GNR_LF",
+    "GEO_DQ"
+  ],
+  "DATA": [
+    [
+      "2016S051248060566",
+      "48",
+      "Alberta",
+      "48060566",
+      "0566",
+      null,
+      2.1,
+      2.5,
+      "00000"
+      ]
+  ]
+}
+
+```
+
+So GEO_UID 2016S051248060566 is what we use in the call to the web data service <https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&dguid=2016S051248060566&topic=13&notes=0&stat=0> topic 13 is population. I'm not sure what notes and stat do yet. I won't show the results here, you can visit the link if you want to see the results, but it's a lot of population data related to that dissemination area.
+
+Let's try and put all of this together.
+
+```{r}
+# Get GEO_UIDS for our DAs
+alberta_json <- fromJSON("https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&geos=DA&cpt=48")
+alberta_geo_uids <- as.data.frame(alberta_json$DATA)
+colnames(alberta_geo_uids) <- alberta_json$COLUMNS
+
+calgary_geo_ids <- calgary_dissemination_area_geo %>% inner_join(alberta_geo_uids, by = c("DAUID" = "GEO_ID_CODE"))
+
+getdata <- function(geo_uid) {
+  url <- paste0("https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&dguid=", geo_uid, "&topic=13&notes=0&stat=0")
+  print(url)
+  json <- fromJSON(url)
+  data <- as.data.frame(json$DATA)
+  colnames(data) <- json$COLUMNS
+  data
+}
+
+# calling this service this many times takes awhile
+# cache to avoid this on each save
+cachePath = tools::R_user_dir("statcan", "cache")
+cacheFilepath = file.path(cachePath, "calgary_census_population.rds")
+if (file.exists(cacheFilepath)) {
+  data <- readRDS(cacheFilepath)
+} else {
+  # this takes a long time to run - perhaps we can run in parallel?
+  datalist <- lapply(calgary_geo_ids$GEO_UID, getdata)
+  data <- do.call(rbind, datalist)
+  saveRDS(data, cacheFilepath)
+}
+
+```
+
+There's a lot of data in there. Let's find something that'll make sense to chart. It turns out that they actually have "Population percentage change, 2011 to 2016". It's not change from the max population like we did in the previous post, but it should tell us something similar. It turns out that this data is all NA in this data set.
+
+I'm not sure why this is - is it populated at less granular levels? Looking at this hierarchy <https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/figures/f1_1-eng.cfm> Census Tract looks like the next level up.
+
+```{r message=FALSE}
+# I manually downloaded the shp files for the census tracts
+ct_geo <- st_read("lct_000b16a_e.shp")
+calgary_ct_geo <- ct_geo %>% filter(CMANAME == "Calgary")
+
+alberta_ct_json <- fromJSON("https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&geos=CT&cpt=48")
+alberta_ct_geo_uids <- as.data.frame(alberta_ct_json$DATA)
+colnames(alberta_ct_geo_uids) <- alberta_ct_json$COLUMNS
+
+calgary_ct_geo_ids <- calgary_ct_geo %>% inner_join(alberta_ct_geo_uids, by = c("CTUID" = "GEO_ID_CODE"))
+
+cacheFilepath = file.path(cachePath, "calgary_ct_population.rds")
+if (file.exists(cacheFilepath)) {
+  ct_data <- readRDS(cacheFilepath)
+} else {
+  datalist <- lapply(calgary_ct_geo_ids$GEO_UID, getdata)
+  ct_data <- do.call(rbind, datalist)
+  saveRDS(ct_data, cacheFilepath)
+}
+```
+
+That's better, "Population percentage change, 2011 to 2016" does have data at this level. Let's filter for that data and join it with our geographic data.
+
+```{r}
+calgary_population_change <- ct_data %>% filter(TEXT_NAME_NOM == "Population percentage change, 2011 to 2016") %>% select(GEO_UID, T_DATA_DONNEE)
+calgary_population_change$T_DATA_DONNEE = as.numeric(calgary_population_change$T_DATA_DONNEE)
+
+calgary_population_change <- calgary_ct_geo_ids %>% left_join(calgary_population_change)
+
+ggplot(calgary_population_change) +
+  geom_sf(aes(geometry = geometry, # we don't need this because our geometry column is named geometry and/or there is only a single geometry column 
+              fill = T_DATA_DONNEE)) + 
+  coord_sf() +
+  theme_void()
+```
+
+Hmmm, well I think this worked, the results show big population changes at the edge of the city which makes sense. I have no idea why it's rotated, and I would need to do some additional work to trim Airdrie and Bragg Creek from the data, but as far as retrieving census data goes, I think I can call that a success.
+
+The same guys that created the cansim package also have the [cancensus package](https://mountainmath.github.io/cancensus/index.html) and you should likely just use that.

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>Working with Statistics Canada Census Data in R | Mark&#39;s Blog</title>
+<meta name="keywords" content="" />
+<meta name="description" content="library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.
+There are a couple of guides to their web services available.">
+<meta name="author" content="R package build">
+<link rel="canonical" href="http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/" />
+<link crossorigin="anonymous" href="/assets/css/stylesheet.min.6f60056d44d3f7eb69a4bc6c332b59960f3a995802bded244750232f33713c49.css" integrity="sha256-b2AFbUTT9&#43;tppLxsMytZlg86mVgCve0kR1AjLzNxPEk=" rel="preload stylesheet" as="style">
+<script defer crossorigin="anonymous" src="/assets/js/highlight.min.7680afc38aa6b15ddf158a4f3780b7b1f7dde7e91d26f073e6229bb7a0793c92.js" integrity="sha256-doCvw4qmsV3fFYpPN4C3sffd5&#43;kdJvBz5iKbt6B5PJI="
+    onload="hljs.initHighlightingOnLoad();"></script>
+<link rel="icon" href="http://markpmorin.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://markpmorin.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://markpmorin.github.io/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://markpmorin.github.io/apple-touch-icon.png">
+<link rel="mask-icon" href="http://markpmorin.github.io/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<meta name="generator" content="Hugo 0.88.1" />
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --hljs-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:title" content="Working with Statistics Canada Census Data in R" />
+<meta property="og:description" content="library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.
+There are a couple of guides to their web services available." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/" /><meta property="article:section" content="post" />
+<meta property="article:published_time" content="2021-11-07T00:00:00&#43;00:00" />
+<meta property="article:modified_time" content="2021-11-07T00:00:00&#43;00:00" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Working with Statistics Canada Census Data in R"/>
+<meta name="twitter:description" content="library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.
+There are a couple of guides to their web services available."/>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "http://markpmorin.github.io/post/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Working with Statistics Canada Census Data in R",
+      "item": "http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Working with Statistics Canada Census Data in R",
+  "name": "Working with Statistics Canada Census Data in R",
+  "description": "library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.\nThere are a couple of guides to their web services available.",
+  "keywords": [
+    
+  ],
+  "articleBody": "  library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.\nThere are a couple of guides to their web services available. The 2016 Census Profile Web Data Service User Guide and the 2016 Census geographies Web Data Service. The idea seems to be that you can retrieve geography identifiers with the “geographies” web service, available at a variety of different levels of detail, and then use the “data service” to retrieve the actual data. Neither of these seems to tell you what the GEO_ID refers to. It looks like these boundary files are where the geographic areas are defined. Let’s see what exactly is in these files and how we can match them up to the GEO_IDs. I’ve downloaded the provinces and territories boundary file, and unzipped it to the same directory as this post.\nprovinces_geo  ## Reading layer `lpr_000b16a_e' from data source ## `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lpr_000b16a_e.shp' ## using driver `ESRI Shapefile' ## Simple feature collection with 13 features and 6 fields ## Geometry type: MULTIPOLYGON ## Dimension: XY ## Bounding box: xmin: 3689439 ymin: 659338.9 xmax: 9015737 ymax: 5242179 ## Projected CRS: PCS_Lambert_Conformal_Conic provinces_geo      PRUID PRNAME PRENAME PRFNAME PREABBR PRFABBR geometry    10 Newfoundland and Labrador / Terre-Neuve-et-Labrador Newfoundland and Labrador Terre-Neuve-et-Labrador N.L. T.-N.-L. MULTIPOLYGON (((8557431 235…  11 Prince Edward Island / Île-du-Prince-Édouard Prince Edward Island Île-du-Prince-Édouard P.E.I. Î.-P.-É. MULTIPOLYGON (((8279949 162…  12 Nova Scotia / Nouvelle-Écosse Nova Scotia Nouvelle-Écosse N.S. N.-É. MULTIPOLYGON (((8705306 149…  13 New Brunswick / Nouveau-Brunswick New Brunswick Nouveau-Brunswick N.B. N.-B. MULTIPOLYGON (((8061445 141…  24 Quebec / Québec Quebec Québec Que. Qc MULTIPOLYGON (((8480007 233…  35 Ontario Ontario Ontario Ont. Ont. MULTIPOLYGON (((5980573 150…  46 Manitoba Manitoba Manitoba Man. Man. MULTIPOLYGON (((6039042 258…  47 Saskatchewan Saskatchewan Saskatchewan Sask. Sask. POLYGON ((5248634 2767057, …  48 Alberta Alberta Alberta Alta. Alb. POLYGON ((5228304 2767598, …  59 British Columbia / Colombie-Britannique British Columbia Colombie-Britannique B.C. C.-B. MULTIPOLYGON (((3867487 225…  60 Yukon Yukon Yukon Y.T. Yn MULTIPOLYGON (((4593314 418…  61 Northwest Territories / Territoires du Nord-Ouest Northwest Territories Territoires du Nord-Ouest N.W.T. T.N.-O. MULTIPOLYGON (((5791488 474…  62 Nunavut Nunavut Nunavut Nvt. Nt MULTIPOLYGON (((7609540 299…    Note the call to st_simplify. The geometries returned are very detailed and printing or viewing the data frame takes a long time. For our purposes we don’t need that level of detail.\nSurprisingly to me there isn’t a GEO_ID in that file, so let’s retrieve some provincial level information and see what we would be returned and how we could match those up. The following should retrieve the geographies services result for provinces (geos=PR and cpt=00 for all of Canada) https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E\u0026geos=PR\u0026cpt=00 so there are province codes and the associated GEO_ID which would allow you call the data service. For example, Alberta’s GEO_ID is 2016A000248. So if you wanted to get the population (topic 13) for Alberta you’d call https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E\u0026dguid=2016A000248\u0026topic=13\u0026notes=0\u0026stat=0.\nThat’s fine at the province level, but we’re trying to get lower level information for our population change question. The lowest level is dissemination area (or maybe blocks, but most data isn’t available at this level?). There is a boundaries file for this and we can load that in the same way as we did the province shape file.\ndissemination_area_geo  ## Reading layer `lda_000b16a_e' from data source ## `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lda_000b16a_e.shp' ## using driver `ESRI Shapefile' ## Simple feature collection with 56589 features and 22 fields ## Geometry type: MULTIPOLYGON ## Dimension: XY ## Bounding box: xmin: 3689439 ymin: 659338.9 xmax: 9015737 ymax: 5242179 ## Projected CRS: PCS_Lambert_Conformal_Conic calgary_dissemination_area_geo % filter(CMANAME == \"Calgary\") knitr::kable(head(calgary_dissemination_area_geo))     DAUID PRUID PRNAME CDUID CDNAME CDTYPE CCSUID CCSNAME CSDUID CSDNAME CSDTYPE ERUID ERNAME SACCODE SACTYPE CMAUID CMAPUID CMANAME CMATYPE CTUID CTNAME ADAUID geometry    48060566 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250029.00 0029.00 48060120 MULTIPOLYGON (((4683802 192…  48060567 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250023.00 0023.00 48060112 MULTIPOLYGON (((4683757 192…  48060568 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250024.00 0024.00 48060112 MULTIPOLYGON (((4683268 192…  48060569 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250024.00 0024.00 48060112 MULTIPOLYGON (((4683206 192…  48060570 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250024.00 0024.00 48060112 MULTIPOLYGON (((4682745 192…  48060571 48 Alberta 4806 Division No. 6 CDR 4806016 Calgary 4806016 Calgary CY 4830 Calgary 825 1 825 48825 Calgary B 8250024.00 0024.00 48060112 MULTIPOLYGON (((4683013 192…    The geographies service call for the dissemination area (DA) level (for Alberta only cpt=48 this time to limit the amount of data) is https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E\u0026geos=DA\u0026cpt=48 So the strategy would seem to be, use the boundary file to find the appropriate DAUID, then find that GEO_ID_CODE in the geographies service call, and use the GEO_UID from that in the call to the data service to retrieve the actual data you’re interested in. For DAUID 48060566 in the geographies service call, we see:\n { \"COLUMNS\": [ \"GEO_UID\", \"PROV_TERR_ID_CODE\", \"PROV_TERR_NAME_NOM\", \"GEO_ID_CODE\", \"GEO_NAME_NOM\", \"GEO_TYPE\", \"GEO_GNR_SF\", \"GEO_GNR_LF\", \"GEO_DQ\" ], \"DATA\": [ [ \"2016S051248060566\", \"48\", \"Alberta\", \"48060566\", \"0566\", null, 2.1, 2.5, \"00000\" ] ] }  So GEO_UID 2016S051248060566 is what we use in the call to the web data service https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E\u0026dguid=2016S051248060566\u0026topic=13\u0026notes=0\u0026stat=0 topic 13 is population. I’m not sure what notes and stat do yet. I won’t show the results here, you can visit the link if you want to see the results, but it’s a lot of population data related to that dissemination area.\nLet’s try and put all of this together.\n# Get GEO_UIDS for our DAs alberta_json % inner_join(alberta_geo_uids, by = c(\"DAUID\" = \"GEO_ID_CODE\")) getdata  There’s a lot of data in there. Let’s find something that’ll make sense to chart. It turns out that they actually have “Population percentage change, 2011 to 2016”. It’s not change from the max population like we did in the previous post, but it should tell us something similar. It turns out that this data is all NA in this data set.\nI’m not sure why this is - is it populated at less granular levels? Looking at this hierarchy https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/figures/f1_1-eng.cfm Census Tract looks like the next level up.\n# I manually downloaded the shp files for the census tracts ct_geo  ## Reading layer `lct_000b16a_e' from data source ## `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lct_000b16a_e.shp' ## using driver `ESRI Shapefile' ## Simple feature collection with 5721 features and 8 fields ## Geometry type: MULTIPOLYGON ## Dimension: XY ## Bounding box: xmin: 3912489 ymin: 693729 xmax: 8996156 ymax: 2810986 ## Projected CRS: PCS_Lambert_Conformal_Conic calgary_ct_geo % filter(CMANAME == \"Calgary\") alberta_ct_json % inner_join(alberta_ct_geo_uids, by = c(\"CTUID\" = \"GEO_ID_CODE\")) cacheFilepath = file.path(cachePath, \"calgary_ct_population.rds\") if (file.exists(cacheFilepath)) { ct_data  That’s better, “Population percentage change, 2011 to 2016” does have data at this level. Let’s filter for that data and join it with our geographic data.\ncalgary_population_change % filter(TEXT_NAME_NOM == \"Population percentage change, 2011 to 2016\") %% select(GEO_UID, T_DATA_DONNEE) calgary_population_change$T_DATA_DONNEE = as.numeric(calgary_population_change$T_DATA_DONNEE) calgary_population_change % left_join(calgary_population_change) ## Joining, by = \"GEO_UID\" ggplot(calgary_population_change) + geom_sf(aes(geometry = geometry, # we don't need this because our geometry column is named geometry and/or there is only a single geometry column fill = T_DATA_DONNEE)) + coord_sf() + theme_void() Hmmm, well I think this worked, the results show big population changes at the edge of the city which makes sense. I have no idea why it’s rotated, and I would need to do some additional work to trim Airdrie and Bragg Creek from the data, but as far as retrieving census data goes, I think I can call that a success.\nThe same guys that created the cansim package also have the cancensus package and you should likely just use that.\n",
+  "wordCount" : "1474",
+  "inLanguage": "en",
+  "datePublished": "2021-11-07T00:00:00Z",
+  "dateModified": "2021-11-07T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "R package build"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Mark's Blog",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://markpmorin.github.io/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://markpmorin.github.io/" accesskey="h" title="Mark&#39;s Blog (Alt + H)">Mark&#39;s Blog</a>
+            <span class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <ul id="menu">
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title">
+      Working with Statistics Canada Census Data in R
+    </h1>
+    <div class="post-meta">November 7, 2021&nbsp;·&nbsp;R package build
+
+</div>
+  </header> 
+  <div class="post-content">
+<script src="http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/index_files/header-attrs/header-attrs.js"></script>
+
+
+<pre class="r"><code>library(tidyverse)
+library(jsonlite)
+library(sf)</code></pre>
+<p>In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use <a href="https://mountainmath.github.io/cancensus/index.html">Cancensus</a> but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.</p>
+<p>There are a couple of guides to their web services available. The <a href="https://www12.statcan.gc.ca/wds-sdw/cpr2016-eng.cfm">2016 Census Profile Web Data Service User Guide</a> and the <a href="https://www12.statcan.gc.ca/wds-sdw/cr2016geo-eng.cfm">2016 Census geographies Web Data Service</a>. The idea seems to be that you can retrieve geography identifiers with the “geographies” web service, available at a variety of different levels of detail, and then use the “data service” to retrieve the actual data. Neither of these seems to tell you what the GEO_ID refers to. It looks like these <a href="https://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/bound-limit-2016-eng.cfm/">boundary files</a> are where the geographic areas are defined. Let’s see what exactly is in these files and how we can match them up to the GEO_IDs. I’ve downloaded the provinces and territories boundary file, and unzipped it to the same directory as this post.</p>
+<pre class="r"><code>provinces_geo &lt;- st_read(&quot;lpr_000b16a_e.shp&quot;)</code></pre>
+<pre><code>## Reading layer `lpr_000b16a_e&#39; from data source 
+##   `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lpr_000b16a_e.shp&#39; 
+##   using driver `ESRI Shapefile&#39;
+## Simple feature collection with 13 features and 6 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 3689439 ymin: 659338.9 xmax: 9015737 ymax: 5242179
+## Projected CRS: PCS_Lambert_Conformal_Conic</code></pre>
+<pre class="r"><code>provinces_geo &lt;- st_simplify(provinces_geo, preserveTopology = FALSE, dTolerance = 1000)
+
+knitr::kable(provinces_geo)</code></pre>
+<table>
+<colgroup>
+<col width="3%" />
+<col width="32%" />
+<col width="16%" />
+<col width="16%" />
+<col width="5%" />
+<col width="5%" />
+<col width="19%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">PRUID</th>
+<th align="left">PRNAME</th>
+<th align="left">PRENAME</th>
+<th align="left">PRFNAME</th>
+<th align="left">PREABBR</th>
+<th align="left">PRFABBR</th>
+<th align="left">geometry</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">Newfoundland and Labrador / Terre-Neuve-et-Labrador</td>
+<td align="left">Newfoundland and Labrador</td>
+<td align="left">Terre-Neuve-et-Labrador</td>
+<td align="left">N.L.</td>
+<td align="left">T.-N.-L.</td>
+<td align="left">MULTIPOLYGON (((8557431 235…</td>
+</tr>
+<tr class="even">
+<td align="left">11</td>
+<td align="left">Prince Edward Island / Île-du-Prince-Édouard</td>
+<td align="left">Prince Edward Island</td>
+<td align="left">Île-du-Prince-Édouard</td>
+<td align="left">P.E.I.</td>
+<td align="left">Î.-P.-É.</td>
+<td align="left">MULTIPOLYGON (((8279949 162…</td>
+</tr>
+<tr class="odd">
+<td align="left">12</td>
+<td align="left">Nova Scotia / Nouvelle-Écosse</td>
+<td align="left">Nova Scotia</td>
+<td align="left">Nouvelle-Écosse</td>
+<td align="left">N.S.</td>
+<td align="left">N.-É.</td>
+<td align="left">MULTIPOLYGON (((8705306 149…</td>
+</tr>
+<tr class="even">
+<td align="left">13</td>
+<td align="left">New Brunswick / Nouveau-Brunswick</td>
+<td align="left">New Brunswick</td>
+<td align="left">Nouveau-Brunswick</td>
+<td align="left">N.B.</td>
+<td align="left">N.-B.</td>
+<td align="left">MULTIPOLYGON (((8061445 141…</td>
+</tr>
+<tr class="odd">
+<td align="left">24</td>
+<td align="left">Quebec / Québec</td>
+<td align="left">Quebec</td>
+<td align="left">Québec</td>
+<td align="left">Que.</td>
+<td align="left">Qc</td>
+<td align="left">MULTIPOLYGON (((8480007 233…</td>
+</tr>
+<tr class="even">
+<td align="left">35</td>
+<td align="left">Ontario</td>
+<td align="left">Ontario</td>
+<td align="left">Ontario</td>
+<td align="left">Ont.</td>
+<td align="left">Ont.</td>
+<td align="left">MULTIPOLYGON (((5980573 150…</td>
+</tr>
+<tr class="odd">
+<td align="left">46</td>
+<td align="left">Manitoba</td>
+<td align="left">Manitoba</td>
+<td align="left">Manitoba</td>
+<td align="left">Man.</td>
+<td align="left">Man.</td>
+<td align="left">MULTIPOLYGON (((6039042 258…</td>
+</tr>
+<tr class="even">
+<td align="left">47</td>
+<td align="left">Saskatchewan</td>
+<td align="left">Saskatchewan</td>
+<td align="left">Saskatchewan</td>
+<td align="left">Sask.</td>
+<td align="left">Sask.</td>
+<td align="left">POLYGON ((5248634 2767057, …</td>
+</tr>
+<tr class="odd">
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">Alberta</td>
+<td align="left">Alberta</td>
+<td align="left">Alta.</td>
+<td align="left">Alb.</td>
+<td align="left">POLYGON ((5228304 2767598, …</td>
+</tr>
+<tr class="even">
+<td align="left">59</td>
+<td align="left">British Columbia / Colombie-Britannique</td>
+<td align="left">British Columbia</td>
+<td align="left">Colombie-Britannique</td>
+<td align="left">B.C.</td>
+<td align="left">C.-B.</td>
+<td align="left">MULTIPOLYGON (((3867487 225…</td>
+</tr>
+<tr class="odd">
+<td align="left">60</td>
+<td align="left">Yukon</td>
+<td align="left">Yukon</td>
+<td align="left">Yukon</td>
+<td align="left">Y.T.</td>
+<td align="left">Yn</td>
+<td align="left">MULTIPOLYGON (((4593314 418…</td>
+</tr>
+<tr class="even">
+<td align="left">61</td>
+<td align="left">Northwest Territories / Territoires du Nord-Ouest</td>
+<td align="left">Northwest Territories</td>
+<td align="left">Territoires du Nord-Ouest</td>
+<td align="left">N.W.T.</td>
+<td align="left">T.N.-O.</td>
+<td align="left">MULTIPOLYGON (((5791488 474…</td>
+</tr>
+<tr class="odd">
+<td align="left">62</td>
+<td align="left">Nunavut</td>
+<td align="left">Nunavut</td>
+<td align="left">Nunavut</td>
+<td align="left">Nvt.</td>
+<td align="left">Nt</td>
+<td align="left">MULTIPOLYGON (((7609540 299…</td>
+</tr>
+</tbody>
+</table>
+<p>Note the call to st_simplify. The geometries returned are very detailed and printing or viewing the data frame takes a long time. For our purposes we don’t need that level of detail.</p>
+<p>Surprisingly to me there isn’t a GEO_ID in that file, so let’s retrieve some provincial level information and see what we would be returned and how we could match those up. The following should retrieve the geographies services result for provinces (geos=PR and cpt=00 for all of Canada) <a href="https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=PR&amp;cpt=00" class="uri">https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=PR&amp;cpt=00</a> so there are province codes and the associated GEO_ID which would allow you call the data service. For example, Alberta’s GEO_ID is 2016A000248. So if you wanted to get the population (topic 13) for Alberta you’d call <a href="https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&amp;dguid=2016A000248&amp;topic=13&amp;notes=0&amp;stat=0" class="uri">https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&amp;dguid=2016A000248&amp;topic=13&amp;notes=0&amp;stat=0</a>.</p>
+<p>That’s fine at the province level, but we’re trying to get lower level information for our population change question. The lowest level is dissemination area (or maybe blocks, but most data isn’t available at this level?). There is a boundaries file for this and we can load that in the same way as we did the province shape file.</p>
+<pre class="r"><code>dissemination_area_geo &lt;- st_read(&quot;lda_000b16a_e.shp&quot;)</code></pre>
+<pre><code>## Reading layer `lda_000b16a_e&#39; from data source 
+##   `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lda_000b16a_e.shp&#39; 
+##   using driver `ESRI Shapefile&#39;
+## Simple feature collection with 56589 features and 22 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 3689439 ymin: 659338.9 xmax: 9015737 ymax: 5242179
+## Projected CRS: PCS_Lambert_Conformal_Conic</code></pre>
+<pre class="r"><code>calgary_dissemination_area_geo &lt;- dissemination_area_geo %&gt;% filter(CMANAME == &quot;Calgary&quot;)
+knitr::kable(head(calgary_dissemination_area_geo))</code></pre>
+<table>
+<colgroup>
+<col width="4%" />
+<col width="2%" />
+<col width="3%" />
+<col width="2%" />
+<col width="7%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="2%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="3%" />
+<col width="5%" />
+<col width="3%" />
+<col width="4%" />
+<col width="14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">DAUID</th>
+<th align="left">PRUID</th>
+<th align="left">PRNAME</th>
+<th align="left">CDUID</th>
+<th align="left">CDNAME</th>
+<th align="left">CDTYPE</th>
+<th align="left">CCSUID</th>
+<th align="left">CCSNAME</th>
+<th align="left">CSDUID</th>
+<th align="left">CSDNAME</th>
+<th align="left">CSDTYPE</th>
+<th align="left">ERUID</th>
+<th align="left">ERNAME</th>
+<th align="left">SACCODE</th>
+<th align="left">SACTYPE</th>
+<th align="left">CMAUID</th>
+<th align="left">CMAPUID</th>
+<th align="left">CMANAME</th>
+<th align="left">CMATYPE</th>
+<th align="left">CTUID</th>
+<th align="left">CTNAME</th>
+<th align="left">ADAUID</th>
+<th align="left">geometry</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">48060566</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250029.00</td>
+<td align="left">0029.00</td>
+<td align="left">48060120</td>
+<td align="left">MULTIPOLYGON (((4683802 192…</td>
+</tr>
+<tr class="even">
+<td align="left">48060567</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250023.00</td>
+<td align="left">0023.00</td>
+<td align="left">48060112</td>
+<td align="left">MULTIPOLYGON (((4683757 192…</td>
+</tr>
+<tr class="odd">
+<td align="left">48060568</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250024.00</td>
+<td align="left">0024.00</td>
+<td align="left">48060112</td>
+<td align="left">MULTIPOLYGON (((4683268 192…</td>
+</tr>
+<tr class="even">
+<td align="left">48060569</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250024.00</td>
+<td align="left">0024.00</td>
+<td align="left">48060112</td>
+<td align="left">MULTIPOLYGON (((4683206 192…</td>
+</tr>
+<tr class="odd">
+<td align="left">48060570</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250024.00</td>
+<td align="left">0024.00</td>
+<td align="left">48060112</td>
+<td align="left">MULTIPOLYGON (((4682745 192…</td>
+</tr>
+<tr class="even">
+<td align="left">48060571</td>
+<td align="left">48</td>
+<td align="left">Alberta</td>
+<td align="left">4806</td>
+<td align="left">Division No. 6</td>
+<td align="left">CDR</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">4806016</td>
+<td align="left">Calgary</td>
+<td align="left">CY</td>
+<td align="left">4830</td>
+<td align="left">Calgary</td>
+<td align="left">825</td>
+<td align="left">1</td>
+<td align="left">825</td>
+<td align="left">48825</td>
+<td align="left">Calgary</td>
+<td align="left">B</td>
+<td align="left">8250024.00</td>
+<td align="left">0024.00</td>
+<td align="left">48060112</td>
+<td align="left">MULTIPOLYGON (((4683013 192…</td>
+</tr>
+</tbody>
+</table>
+<p>The geographies service call for the dissemination area (DA) level (for Alberta only cpt=48 this time to limit the amount of data) is <a href="https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=DA&amp;cpt=48" class="uri">https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=DA&amp;cpt=48</a>
+So the strategy would seem to be, use the boundary file to find the appropriate DAUID, then find that GEO_ID_CODE in the geographies service call, and use the GEO_UID from that in the call to the data service to retrieve the actual data you’re interested in. For DAUID 48060566 in the geographies service call, we see:</p>
+<pre class="javascript"><code>
+{
+  &quot;COLUMNS&quot;: [
+    &quot;GEO_UID&quot;,
+    &quot;PROV_TERR_ID_CODE&quot;,
+    &quot;PROV_TERR_NAME_NOM&quot;,
+    &quot;GEO_ID_CODE&quot;,
+    &quot;GEO_NAME_NOM&quot;,
+    &quot;GEO_TYPE&quot;,
+    &quot;GEO_GNR_SF&quot;,
+    &quot;GEO_GNR_LF&quot;,
+    &quot;GEO_DQ&quot;
+  ],
+  &quot;DATA&quot;: [
+    [
+      &quot;2016S051248060566&quot;,
+      &quot;48&quot;,
+      &quot;Alberta&quot;,
+      &quot;48060566&quot;,
+      &quot;0566&quot;,
+      null,
+      2.1,
+      2.5,
+      &quot;00000&quot;
+      ]
+  ]
+}
+</code></pre>
+<p>So GEO_UID 2016S051248060566 is what we use in the call to the web data service <a href="https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&amp;dguid=2016S051248060566&amp;topic=13&amp;notes=0&amp;stat=0" class="uri">https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&amp;dguid=2016S051248060566&amp;topic=13&amp;notes=0&amp;stat=0</a> topic 13 is population. I’m not sure what notes and stat do yet. I won’t show the results here, you can visit the link if you want to see the results, but it’s a lot of population data related to that dissemination area.</p>
+<p>Let’s try and put all of this together.</p>
+<pre class="r"><code># Get GEO_UIDS for our DAs
+alberta_json &lt;- fromJSON(&quot;https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=DA&amp;cpt=48&quot;)
+alberta_geo_uids &lt;- as.data.frame(alberta_json$DATA)
+colnames(alberta_geo_uids) &lt;- alberta_json$COLUMNS
+
+calgary_geo_ids &lt;- calgary_dissemination_area_geo %&gt;% inner_join(alberta_geo_uids, by = c(&quot;DAUID&quot; = &quot;GEO_ID_CODE&quot;))
+
+getdata &lt;- function(geo_uid) {
+  url &lt;- paste0(&quot;https://www12.statcan.gc.ca/rest/census-recensement/CPR2016.json?lang=E&amp;dguid=&quot;, geo_uid, &quot;&amp;topic=13&amp;notes=0&amp;stat=0&quot;)
+  print(url)
+  json &lt;- fromJSON(url)
+  data &lt;- as.data.frame(json$DATA)
+  colnames(data) &lt;- json$COLUMNS
+  data
+}
+
+# calling this service this many times takes awhile
+# cache to avoid this on each save
+cachePath = tools::R_user_dir(&quot;statcan&quot;, &quot;cache&quot;)
+cacheFilepath = file.path(cachePath, &quot;calgary_census_population.rds&quot;)
+if (file.exists(cacheFilepath)) {
+  data &lt;- readRDS(cacheFilepath)
+} else {
+  # this takes a long time to run - perhaps we can run in parallel?
+  datalist &lt;- lapply(calgary_geo_ids$GEO_UID, getdata)
+  data &lt;- do.call(rbind, datalist)
+  saveRDS(data, cacheFilepath)
+}</code></pre>
+<p>There’s a lot of data in there. Let’s find something that’ll make sense to chart. It turns out that they actually have “Population percentage change, 2011 to 2016”. It’s not change from the max population like we did in the previous post, but it should tell us something similar. It turns out that this data is all NA in this data set.</p>
+<p>I’m not sure why this is - is it populated at less granular levels? Looking at this hierarchy <a href="https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/figures/f1_1-eng.cfm" class="uri">https://www12.statcan.gc.ca/census-recensement/2016/ref/dict/figures/f1_1-eng.cfm</a> Census Tract looks like the next level up.</p>
+<pre class="r"><code># I manually downloaded the shp files for the census tracts
+ct_geo &lt;- st_read(&quot;lct_000b16a_e.shp&quot;)</code></pre>
+<pre><code>## Reading layer `lct_000b16a_e&#39; from data source 
+##   `/Users/markmorin/projects/blog/content/post/2021-11-07-working-with-statistics-canada-census-data-in-r/lct_000b16a_e.shp&#39; 
+##   using driver `ESRI Shapefile&#39;
+## Simple feature collection with 5721 features and 8 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 3912489 ymin: 693729 xmax: 8996156 ymax: 2810986
+## Projected CRS: PCS_Lambert_Conformal_Conic</code></pre>
+<pre class="r"><code>calgary_ct_geo &lt;- ct_geo %&gt;% filter(CMANAME == &quot;Calgary&quot;)
+
+alberta_ct_json &lt;- fromJSON(&quot;https://www12.statcan.gc.ca/rest/census-recensement/CR2016Geo.json?lang=E&amp;geos=CT&amp;cpt=48&quot;)
+alberta_ct_geo_uids &lt;- as.data.frame(alberta_ct_json$DATA)
+colnames(alberta_ct_geo_uids) &lt;- alberta_ct_json$COLUMNS
+
+calgary_ct_geo_ids &lt;- calgary_ct_geo %&gt;% inner_join(alberta_ct_geo_uids, by = c(&quot;CTUID&quot; = &quot;GEO_ID_CODE&quot;))
+
+cacheFilepath = file.path(cachePath, &quot;calgary_ct_population.rds&quot;)
+if (file.exists(cacheFilepath)) {
+  ct_data &lt;- readRDS(cacheFilepath)
+} else {
+  datalist &lt;- lapply(calgary_ct_geo_ids$GEO_UID, getdata)
+  ct_data &lt;- do.call(rbind, datalist)
+  saveRDS(ct_data, cacheFilepath)
+}</code></pre>
+<p>That’s better, “Population percentage change, 2011 to 2016” does have data at this level. Let’s filter for that data and join it with our geographic data.</p>
+<pre class="r"><code>calgary_population_change &lt;- ct_data %&gt;% filter(TEXT_NAME_NOM == &quot;Population percentage change, 2011 to 2016&quot;) %&gt;% select(GEO_UID, T_DATA_DONNEE)
+calgary_population_change$T_DATA_DONNEE = as.numeric(calgary_population_change$T_DATA_DONNEE)
+
+calgary_population_change &lt;- calgary_ct_geo_ids %&gt;% left_join(calgary_population_change)</code></pre>
+<pre><code>## Joining, by = &quot;GEO_UID&quot;</code></pre>
+<pre class="r"><code>ggplot(calgary_population_change) +
+  geom_sf(aes(geometry = geometry, # we don&#39;t need this because our geometry column is named geometry and/or there is only a single geometry column 
+              fill = T_DATA_DONNEE)) + 
+  coord_sf() +
+  theme_void()</code></pre>
+<p><img src="http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>Hmmm, well I think this worked, the results show big population changes at the edge of the city which makes sense. I have no idea why it’s rotated, and I would need to do some additional work to trim Airdrie and Bragg Creek from the data, but as far as retrieving census data goes, I think I can call that a success.</p>
+<p>The same guys that created the cansim package also have the <a href="https://mountainmath.github.io/cancensus/index.html">cancensus package</a> and you should likely just use that.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+    <span>&copy; 2021 <a href="http://markpmorin.github.io/">Mark&#39;s Blog</a></span>
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://git.io/hugopapermod" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+    menu.onscroll = function () {
+        localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

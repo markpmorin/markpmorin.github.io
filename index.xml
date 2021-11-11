@@ -6,7 +6,17 @@
     <description>Recent content on Mark&#39;s Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 30 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sun, 07 Nov 2021 00:00:00 +0000</lastBuildDate><atom:link href="http://markpmorin.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Working with Statistics Canada Census Data in R</title>
+      <link>http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/</link>
+      <pubDate>Sun, 07 Nov 2021 00:00:00 +0000</pubDate>
+      
+      <guid>http://markpmorin.github.io/post/2021-11-07-working-with-statistics-canada-census-data-in-r/</guid>
+      <description>library(tidyverse) library(jsonlite) library(sf) In my quest to become familiar with the various data sources that might be useful in understanding my world, next up is Statistics Canaada census data. I should probably just use Cancensus but I like to figure out how these things work, and what value the packages bring to the table before deciding to take a dependency on them.
+There are a couple of guides to their web services available.</description>
+    </item>
+    
     <item>
       <title>Calgary Community Population Change</title>
       <link>http://markpmorin.github.io/post/2021-10-30-calgary-community-population-change/</link>
